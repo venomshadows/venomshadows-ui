@@ -1,0 +1,152 @@
+/* ══ venomshadows-ui: шрифт и дизайн-токены ══════════════════════════════
+   Единственный источник значений для ui.css, list.css и CSS проектов.
+   Компоненты берут смысловые токены (--color-*, --text-*), а не примитивы:
+   так цвет роли меняется в одном месте. Эталон — brand. */
+
+/* Roboto 400/500 лежит в пакете (fonts/, OFL): без запроса к Google и без
+   синтеза полужирного. Кириллица и латиница — отдельные файлы, браузер
+   качает только нужный по unicode-range. */
+@font-face {
+  font-family: "Roboto";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/roboto-cyrillic-400.woff2") format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Roboto";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/roboto-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Roboto";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("fonts/roboto-cyrillic-500.woff2") format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Roboto";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("fonts/roboto-latin-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ── Примитивы палитры ── */
+  --bg: #070708;
+  --bg-panel: #0c1626;
+  --bg-panel-2: #101d33;
+  --fg: #e7f0ff;
+  --muted: #9aadcb;
+  --placeholder: #71849f;
+
+  --blue: #2f8bff;
+  --blue-bright: #5bb4ff;
+  --cyan: #35e0e0;
+
+  --ok: #22c88f;
+  --blocked: #ff4d6a;
+  --amber: #f5b43d;
+  --yellow: #f2c94c;
+
+  --border: rgba(91, 180, 255, 0.18);
+  --border-bright: rgba(91, 180, 255, 0.45);
+
+  /* ── Смысловые токены цвета ── */
+  --color-bg-sunken: rgba(6, 16, 32, 0.7);          /* поля ввода, подложка .btn-link */
+  --color-bg-sunken-subtle: rgba(6, 16, 32, 0.4);   /* карточки внутри панели */
+  --color-bg-hover: rgba(91, 180, 255, 0.06);       /* наведение на строку */
+  --color-bg-disabled: #1a2a44;
+  --color-bg-neutral-subtle: rgba(123, 144, 179, 0.14);
+  --color-bg-table-head: #0e1a2e;                   /* закреплённая шапка таблицы */
+  --color-bg-overlay: rgba(2, 6, 14, 0.88);         /* под модальным окном */
+  --color-bg-overlay-subtle: rgba(2, 6, 14, 0.72);  /* под выезжающим меню */
+  --color-outline-image: rgba(255, 255, 255, 0.1);
+  --color-control-floating: rgba(6, 16, 32, 0.85);
+  --color-control-floating-hover: rgba(16, 29, 51, 0.95);
+
+  --color-text-primary: var(--fg);
+  --color-text-secondary: var(--muted);
+  --color-text-disabled: var(--muted);
+  --color-text-placeholder: var(--placeholder);
+  --color-text-on-accent: #04101f;
+
+  --color-accent: var(--blue);
+  --color-accent-text: var(--blue-bright);
+  --color-accent-subtle: rgba(47, 139, 255, 0.14);
+  --color-accent-tint: rgba(91, 180, 255, 0.1);
+  --color-accent-tint-hover: rgba(91, 180, 255, 0.18);
+  --color-focus-halo: rgba(47, 139, 255, 0.18);
+
+  --color-danger-text: var(--blocked);
+  --color-danger-bg: rgba(255, 77, 106, 0.12);
+  --color-danger-bg-hover: rgba(255, 77, 106, 0.18);
+  --color-danger-border: rgba(255, 77, 106, 0.35);
+
+  --color-success-text: var(--ok);
+  --color-success-bg: rgba(34, 200, 143, 0.12);
+  --color-success-border: rgba(34, 200, 143, 0.35);
+
+  /* Предупреждение — янтарное; красный только за ошибками и удалением. */
+  --color-warning-text: var(--amber);
+  --color-warning-bg: rgba(245, 180, 61, 0.12);
+  --color-warning-border: rgba(245, 180, 61, 0.35);
+
+  /* «Частично» (смешанный результат проверки) — только index. */
+  --color-partial-text: var(--yellow);
+  --color-partial-bg: rgba(242, 201, 76, 0.12);
+  --color-partial-border: rgba(242, 201, 76, 0.35);
+
+  --color-neutral-text: var(--muted);
+  --color-neutral-bg: var(--color-bg-neutral-subtle);
+  --color-neutral-border: rgba(123, 144, 179, 0.35);
+
+  /* ── Типографика: других размеров шрифта в пакете и проектах нет ── */
+  --font-sans: "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  --text-caption: 0.8125rem;  /* 13: подписи полей, th, бейджи, шаги, «Выйти» */
+  --text-sm: 0.875rem;        /* 14: кнопки, табы, подсказки, баннеры, td */
+  --text-base: 1rem;          /* 16: поля ввода (iOS не зумит) */
+  --text-heading: 1.125rem;   /* 18: заголовки секций, пустые состояния */
+  --text-title: 1.5rem;       /* 24: заголовки страниц и входа */
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+
+  --leading-body: 1.5;
+  --leading-tight: 1.2;
+  --tracking-caps: 0.05em;
+  --measure: 68ch;            /* длина строки сплошного текста */
+
+  /* ── Форма ── */
+  --radius: 10px;             /* панели, карточки, диалоги */
+  --radius-sm: 8px;           /* кнопки, поля, табы, строки */
+  --radius-xs: 6px;           /* иконочные кнопки */
+  --radius-pill: 999px;
+  --shadow-glow: 0 0 0 1px var(--border), 0 20px 60px -20px rgba(47, 139, 255, 0.35);
+  --shadow-soft: 0 20px 60px -20px rgba(47, 139, 255, 0.35);  /* секции настроек: без кольца-рамки */
+  --shadow-accent: 0 8px 24px -8px rgba(47, 139, 255, 0.6);
+  --focus-ring: 0 0 0 3px var(--color-focus-halo);
+  --press-transition: scale 0.15s ease-out;
+
+  /* ── Раскладка ── */
+  --tap: 44px;                          /* минимальная зона нажатия */
+  --gutter: clamp(1rem, 3vw, 2.5rem);   /* боковой отступ шапки, страниц, баннеров */
+  --sidebar-w: 20rem;                   /* левое меню: одинаково на всех страницах */
+  --drawer-w: min(88vw, 360px);         /* левое меню-шторка ≤860px */
+  --panel-pad: 2rem;
+  --layout-gap: 2rem;
+  --logo-h: 5rem;                       /* логотип в шапке; ≤480px — --logo-h-small */
+  --logo-h-small: 3.5rem;
+}
