@@ -444,7 +444,10 @@ code, kbd {
   min-width: 0;
   margin-bottom: 1.1rem;
 }
-.field__label {
+.field__label,
+.checkbox-group > legend,
+.bulk-bar fieldset > legend,
+.settings-section fieldset > legend {
   font-size: var(--text-caption);
   font-weight: var(--weight-medium);
   letter-spacing: var(--tracking-caps);
@@ -755,4 +758,90 @@ input:user-invalid, select:user-invalid, textarea:user-invalid, [aria-invalid="t
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Сброс fieldset сохраняет общую геометрию групп и подписей. */
+.checkbox-group, .bulk-bar fieldset, .settings-section fieldset {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.checkbox-group > legend, .bulk-bar fieldset > legend, .settings-section fieldset > legend {
+  max-width: 100%;
+  padding: 0;
+  margin-bottom: .45rem;
+}
+.checkbox-group {
+  --checkbox-columns-min: 14rem;
+  margin-bottom: 1.1rem;
+}
+.checkbox-group--narrow {
+  --checkbox-columns-min: 10rem;
+}
+.checkbox-group--wide {
+  --checkbox-columns-min: 18rem;
+}
+.checkbox-group__options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--checkbox-columns-min)), 1fr));
+  column-gap: 1.25rem;
+}
+.checkbox-group .checkbox-row {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.checkbox-group > .field__hint {
+  display: block;
+  margin-bottom: .45rem;
+}
+.checkbox-group--scroll .checkbox-group__options {
+  max-height: var(--checkbox-group-max-height, 18rem);
+  overflow-y: auto;
+  /* Отступ оставляет место кольцу фокуса внутри области прокрутки. */
+  padding: .25rem;
+}
+/* На телефоне две колонки появляются только при достаточной ширине. */
+@media (max-width: 640px) {
+  .checkbox-group__options {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(7.5rem, calc((100% - 1.25rem) / 2))), 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .checkbox-group--wide .checkbox-group__options {
+    grid-template-columns: 1fr;
+  }
+}
+.checkbox-menu {
+  position: relative;
+  min-width: 0;
+}
+.checkbox-menu > summary {
+  list-style: none;
+}
+.checkbox-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.checkbox-menu[open] > summary .icon {
+  transform: rotate(180deg);
+}
+/* Панель раскрывается вверх, чтобы нижняя панель действий не закрывала варианты. */
+.checkbox-menu__panel {
+  position: absolute;
+  bottom: calc(100% + .5rem);
+  right: 0;
+  z-index: 3;
+  width: min(40rem, calc(100vw - 2 * var(--gutter)));
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-table-head);
+  box-shadow: var(--shadow-soft);
+}
+.checkbox-menu__panel > .checkbox-group {
+  margin-bottom: 0;
 }

@@ -2,6 +2,35 @@
 (function () {
   "use strict";
 
+  function updateCheckboxCount(menu) {
+    const count = menu.querySelector("[data-checkbox-count]");
+    if (count) count.textContent = menu.querySelectorAll('input[type="checkbox"]:checked').length;
+  }
+
+  // Фокус возвращаем только с клавиатуры: клик снаружи уже выбрал новую цель.
+  function closeCheckboxMenu(menu, restoreFocus) {
+    menu.open = false;
+    if (restoreFocus) menu.querySelector("summary").focus({ preventScroll: true });
+  }
+
+  document.addEventListener("change", event => {
+    const menu = event.target.closest("details.checkbox-menu");
+    if (menu) updateCheckboxCount(menu);
+  });
+  document.addEventListener("click", event => {
+    document.querySelectorAll("details.checkbox-menu[open]").forEach(menu => {
+      if (!menu.contains(event.target)) closeCheckboxMenu(menu);
+    });
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    document.querySelectorAll("details.checkbox-menu[open]").forEach(menu => {
+      event.preventDefault();
+      closeCheckboxMenu(menu, true);
+    });
+  });
+  document.querySelectorAll("details.checkbox-menu").forEach(updateCheckboxCount);
+
   const busyForms = new Map();
   const confirmedForms = new WeakSet();
   const confirmedButtons = new WeakSet();

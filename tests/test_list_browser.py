@@ -281,7 +281,7 @@ def test_sticky_header_and_stacked_geometry(browser, live_url, width):
         assert abs(page.locator('thead').bounding_box()['width'] - wrapper.bounding_box()['width']) < 2
         cell = page.locator('[data-row]').first.locator('td').last
         assert cell.evaluate("el => getComputedStyle(el, '::before').textAlign") == 'start'
-        assert page.locator('thead th').first.evaluate("el => getComputedStyle(el).backgroundColor") == 'rgba(0, 0, 0, 0)'
+        assert page.locator('thead th').first.evaluate("el => getComputedStyle(el).backgroundColor === getComputedStyle(el.closest('thead')).backgroundColor")
         select = page.locator('[data-row]').first.locator('.data-table__select')
         assert select.evaluate("el => getComputedStyle(el).position") == 'absolute'
         assert select.locator('label').bounding_box()['height'] >= 44
@@ -574,4 +574,86 @@ def test_selection_plain_post(browser, live_url, javascript):
     with page.expect_response("**/demo/list-selection") as response:
         page.locator("[data-submit-selection]").click()
     assert response.value.json() == {"ids": ["2", "4"], "fields": ["csrf_token", "ids"]}
+    page.close()
+
+
+@pytest.mark.parametrize('demo', ['list', 'list-server'])
+def test_stacked_header_scroll_and_sort(page, live_url, demo):
+    page.set_viewport_size({'width': 360, 'height': 1000})
+    page.goto(f'{live_url}/demo/{demo}')
+    header = page.locator('.data-table thead tr')
+    assert header.bounding_box()['height'] <= 44
+    assert header.evaluate("el => getComputedStyle(el).flexWrap") == 'nowrap'
+    assert header.evaluate('el => el.scrollWidth > el.clientWidth')
+    assert page.locator('.th-sort').evaluate_all("els => els.every(el => getComputedStyle(el).whiteSpace === 'nowrap')")
+    for direction in ('ascending', 'descending'):
+        page.locator('.th-sort').last.click()
+        assert page.locator('th[aria-sort="' + direction + '"]').count() == 1
+        values = page.locator('[data-row]:visible').evaluate_all('rows => rows.map(row => Number(row.dataset.sortNumber))')
+        assert values == sorted(values, reverse=direction == 'descending')
+        assert header.bounding_box()['height'] <= 44
+        active = page.locator('th[aria-sort="' + direction + '"]').bounding_box()
+        box = header.bounding_box()
+        assert active['x'] >= box['x']
+        assert active['x'] + active['width'] <= box['x'] + box['width']
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    for index in range(page.locator('.th-sort').count()):
+        header.evaluate('el => el.scrollLeft = 0')
+        page.locator('.th-sort').nth(index).click()
+        assert page.locator('th[aria-sort="ascending"], th[aria-sort="descending"]').count() == 1
+    # Невидимые подписи остаются в DOM и не увеличивают высоту заголовка.
+    hidden = header.locator('th').last
+    assert hidden.evaluate("el => getComputedStyle(el).clipPath") == 'inset(50%)'
+    assert hidden.evaluate("el => getComputedStyle(el).display") != 'none'
+    assert header.bounding_box()['height'] <= 44
+
+
+@pytest.mark.parametrize('width', [360, 1600])
+def test_bulk_checkbox_menu(page, live_url, width, screenshot):
+    page.set_viewport_size({'width': width, 'height': 1000})
+    page.goto(live_url + '/demo/list')
+    page.locator('[data-row-select]').first.check()
+    bar = page.locator('[data-bulk-bar]')
+    menu = bar.locator('details.checkbox-menu')
+    summary = menu.locator('summary')
+    summary.scroll_into_view_if_needed()
+    height = bar.bounding_box()['height']
+    if width == 1600:
+        select = bar.locator('select').bounding_box()
+        button = bar.locator('[data-demo-delete]').bounding_box()
+        assert abs(select['y'] + select['height'] - button['y'] - button['height']) <= 1
+        assert height < 100
+    summary.click()
+    panel = menu.locator('.checkbox-menu__panel')
+    box = panel.bounding_box()
+    assert box['y'] >= 0
+    assert box['y'] + box['height'] <= summary.bounding_box()['y']
+    assert box['x'] >= 0 and box['x'] + box['width'] <= width
+    assert panel.evaluate('el => el.scrollHeight > el.clientHeight')
+    assert bar.bounding_box()['height'] == height
+    assert menu.locator('input').count() == 37
+    assert menu.locator('[data-checkbox-count]').inner_text() == '2'
+    menu.locator('input').first.uncheck()
+    assert menu.locator('[data-checkbox-count]').inner_text() == '1'
+    screenshot(page, f'list-{width}')
+    page.keyboard.press('Escape')
+    assert not menu.evaluate('el => el.open')
+    assert summary.evaluate('el => el === document.activeElement')
+    summary.click()
+    # Клик снаружи закрывает меню и не отнимает фокус у выбранного поля.
+    search = page.locator('[data-list-search]')
+    search.click()
+    assert not menu.evaluate('el => el.open')
+    assert search.evaluate('el => el === document.activeElement')
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+
+
+def test_checkbox_menu_without_js(browser, live_url, render):
+    page = browser.new_page(java_script_enabled=False)
+    html = render("{% import 'venom_ui/macros.html' as ui %}{{ ui.checkbox_group('brands', 'Brands', [(1, 'One')], collapsible=true) }}")
+    page.set_content(html)
+    menu = page.locator('details.checkbox-menu')
+    menu.locator('summary').click()
+    assert menu.evaluate('el => el.open')
+    assert menu.locator('input').first.is_visible()
     page.close()

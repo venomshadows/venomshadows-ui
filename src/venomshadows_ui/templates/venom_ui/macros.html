@@ -77,10 +77,40 @@
 {%- endmacro %}
 
 {# Вся строка — зона нажатия, подсказка связана с полем. #}
+{% macro _checkbox_row(name, label, checked=False, value='1', attrs={}) -%}
+<label class="checkbox-row"><input type="checkbox" name="{{ name }}" value="{{ value }}"{% if checked %} checked{% endif %}{{ attrs|xmlattr }}><span>{{ label }}</span></label>
+{%- endmacro %}
+
 {% macro checkbox(name, label, checked=False, hint=None) -%}
 {% call(description) _field_shell(name, None, hint) %}
-<label class="checkbox-row"><input type="checkbox" name="{{ name }}" value="1"{% if checked %} checked{% endif %}{{ description|xmlattr }}><span>{{ label }}</span></label>
+{{ _checkbox_row(name, label, checked, attrs=description) }}
 {% endcall %}
+{%- endmacro %}
+
+{# Пресеты ширины сохраняют строгую CSP без inline-стилей. #}
+{% macro checkbox_group(name, label, options, checked=(), hint=None, columns_min='14rem', scroll=False, id=None, collapsible=False) -%}
+{% set width = {'10rem': 'narrow', '14rem': 'normal', '18rem': 'wide'}.get(columns_min, 'normal') %}
+{% set checked = [checked] if checked is string or checked is number else (checked or []) %}
+{% set selected = checked|map('string')|list %}
+{% set id = id if id is not none else name %}
+{% set options = options|list %}
+{% set count = namespace(value=0) %}
+{% for value, text in options if value|string in selected %}{% set count.value = count.value + 1 %}{% endfor %}
+{% if collapsible %}
+<details class="checkbox-menu">
+  <summary class="btn btn--secondary">{{ label }} · выбрано <span data-checkbox-count>{{ count.value }}</span>{{ icon('chevron-down') }}</summary>
+  <div class="checkbox-menu__panel">
+{% endif %}
+<fieldset id="{{ id }}" class="checkbox-group{% if width != 'normal' %} checkbox-group--{{ width }}{% endif %}{% if scroll %} checkbox-group--scroll{% endif %}"{% if hint %} aria-describedby="{{ id }}-group-hint"{% endif %}>
+  <legend>{{ label }}</legend>
+  {% if hint %}<span class="field__hint" id="{{ id }}-group-hint">{{ hint }}</span>{% endif %}
+  <div class="checkbox-group__options">
+    {% for value, text in options %}
+      {{ _checkbox_row(name, text, value|string in selected, value) }}
+    {% endfor %}
+  </div>
+</fieldset>
+{% if collapsible %}</div></details>{% endif %}
 {%- endmacro %}
 
 {# Значения options сравниваются строкой, включая числовые ключи. #}

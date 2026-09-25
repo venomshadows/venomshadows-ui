@@ -237,3 +237,34 @@ def test_copy_field_values_and_other_element_text(page, live_url, fallback):
         page.locator('#copy-trigger').evaluate('(el, target) => el.dataset.copyTarget = "copy-" + target', target)
         page.locator('#copy-trigger').click()
         page.wait_for_function('(expected) => window.copied === expected', arg=expected)
+
+
+@pytest.mark.parametrize(('width', 'columns'), [(360, 2), (640, 2), (1600, 5)])
+def test_checkbox_group_grid(page, live_url, width, columns):
+    page.set_viewport_size({'width': width, 'height': 1000})
+    page.goto(live_url + '/demo/components')
+    group = page.locator('.checkbox-group')
+    assert group.locator('input').count() == 31
+    assert group.locator('input:checked').count() == 3
+    actual = group.locator('.checkbox-group__options').evaluate("el => getComputedStyle(el).gridTemplateColumns.split(' ').length")
+    assert actual == columns
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    assert group.locator('legend').evaluate("el => getComputedStyle(el).fontSize") == '13px'
+    group.evaluate("el => el.classList.add('checkbox-group--scroll')")
+    assert group.locator('.checkbox-group__options').evaluate('el => el.scrollHeight > el.clientHeight')
+
+
+@pytest.mark.parametrize('preset,columns', [('', 2), ('narrow', 2), ('wide', 1)])
+def test_checkbox_group_phone_presets_and_spacing(page, live_url, preset, columns):
+    page.set_viewport_size({'width': 360, 'height': 1000})
+    page.goto(live_url + '/demo/components')
+    group = page.locator('.checkbox-group')
+    if preset:
+        group.evaluate('(el, preset) => el.classList.add("checkbox-group--" + preset)', preset)
+    grid = group.locator('.checkbox-group__options')
+    assert grid.evaluate("el => getComputedStyle(el).gridTemplateColumns.split(' ').length") == columns
+    group_box = group.bounding_box()
+    next_label = page.locator('label[for="brand-note"]').bounding_box()
+    assert next_label['y'] - group_box['y'] - group_box['height'] >= 17
+    hint = group.locator('.field__hint').bounding_box()
+    assert abs(grid.bounding_box()['y'] - hint['y'] - hint['height'] - 7.2) < 1

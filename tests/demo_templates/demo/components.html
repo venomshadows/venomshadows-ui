@@ -4,6 +4,13 @@
 <div class="page">
   {% call ui.page_header('Компоненты', count=24, lead='Общие элементы интерфейса всех сервисов.') %}{{ ui.btn('Создать', type='button', icon='plus') }}{% endcall %}
   <div class="settings-stack">
+    <section class="panel"><h2>Группа флажков</h2>
+      {% set options = [] %}
+      {% for number in range(1, 32) %}{% set _ = options.append((number, 'Бренд ' ~ number)) %}{% endfor %}
+      {{ ui.field('brand-search', 'Поиск бренда') }}
+      {{ ui.checkbox_group('brands', 'Бренды для проверки', options, checked=[1, 7, 31], hint='Выберите нужные бренды.') }}
+      {{ ui.field('brand-note', 'Примечание') }}
+    </section>
     <section class="panel"><h2>Кнопки</h2><div class="settings-actions">
       {% for variant, label in [('primary', 'Сохранить'), ('secondary', 'Проверить'), ('danger', 'Удалить')] %}{{ ui.btn(label, variant, type='button') }}{{ ui.btn(label, variant, type='button', small=true) }}{% endfor %}
       {{ ui.btn('Недоступно', type='button', attrs={'disabled': true}) }}

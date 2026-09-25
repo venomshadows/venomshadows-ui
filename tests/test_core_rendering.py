@@ -247,3 +247,38 @@ def test_js_class_precedes_stylesheets(client):
     html = client.get('/demo/settings').get_data(as_text=True)
     script = "<script>document.documentElement.classList.add('js')</script>"
     assert html.index('<head>') < html.index(script) < html.index('/_ui/tokens.css') < html.index('</head>')
+
+
+@pytest.mark.parametrize(('width', 'modifier'), [('10rem', 'narrow'), ('14rem', 'normal'), ('18rem', 'wide'), ('invalid', 'normal')])
+def test_checkbox_group(render, width, modifier):
+    dom = tree(macro(render, "ui.checkbox_group('brands', label, options, checked=['2'], hint='Hint', columns_min=width, scroll=true)",
+                     label='Brands <all>', options=[('a&b', 'Alpha <one>'), (2, 'Beta')], width=width))
+    group = dom.find('fieldset')[0]
+    assert group.has_class('checkbox-group--' + modifier) if modifier != 'normal' else not group.has_class('checkbox-group--normal')
+    assert group.has_class('checkbox-group--scroll')
+    assert group.find('legend')[0].text == 'Brands <all>'
+    assert group.attrs['aria-describedby'] == group.find('span', id='brands-group-hint')[0].attrs['id']
+    inputs = group.find('input')
+    assert [item.attrs['name'] for item in inputs] == ['brands', 'brands']
+    assert [item.attrs['value'] for item in inputs] == ['a&b', '2']
+    assert ['checked' in item.attrs for item in inputs] == [False, True]
+    assert all(item.ancestor('label').has_class('checkbox-row') for item in inputs)
+    assert not dom.find(style=True)
+
+
+def test_checkbox_group_defaults(render):
+    dom = tree(macro(render, "ui.checkbox_group('brands', 'Brands', [('a', 'Alpha')])"))
+    assert not dom.find('input', checked=True)
+    assert 'aria-describedby' not in dom.find('fieldset')[0].attrs
+
+
+@pytest.mark.parametrize('checked,expected', [(2, ['2']), ('12', ['12']), (None, []), ([1, '2'], ['1', '2'])])
+def test_checkbox_group_scalar_and_ids(render, checked, expected):
+    dom = tree(macro(render, "ui.checkbox_group('ids', 'Brands', options, checked=checked, hint='First', id='first', collapsible=true) ~ ui.checkbox_group('ids', 'Brands', options, hint='Second', id='second')",
+                     options=[(1, 'One'), (2, 'Two'), (12, 'Twelve')], checked=checked))
+    groups = dom.find('fieldset')
+    assert [item.attrs['value'] for item in groups[0].find('input', checked=True)] == expected
+    assert [group.attrs['aria-describedby'] for group in groups] == ['first-group-hint', 'second-group-hint']
+    assert dom.find('details')[0].has_class('checkbox-menu')
+    assert 'выбрано' in dom.find('summary')[0].text
+    assert dom.find('span', **{'data-checkbox-count': True})[0].text == str(len(expected))

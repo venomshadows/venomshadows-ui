@@ -259,7 +259,7 @@
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: end;
   gap: .75rem;
   padding: .75rem;
   background: var(--color-bg-table-head);
@@ -313,14 +313,52 @@
   }
   .data-table--stacked thead tr {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: .25rem .5rem;
-    padding: .25rem;
+    gap: .5rem;
+    padding: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .data-table--stacked thead tr::-webkit-scrollbar {
+    display: none;
   }
   .data-table--stacked thead th {
+    flex: 0 0 auto;
+    white-space: nowrap;
     background: none;
     border: 0;
+  }
+  /* Подписи остаются доступны скринридеру без места в строке сортировки. */
+  .data-table--stacked thead th:not([aria-sort]):not(.data-table__select) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  /* Активная сортировка видна сразу и после серверной перезагрузки. */
+  .data-table--stacked thead .data-table__select {
+    order: -2;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--color-bg-table-head);
+  }
+  .data-table--stacked thead th[aria-sort="ascending"],
+  .data-table--stacked thead th[aria-sort="descending"] {
+    order: -1;
+    /* При клиентской сортировке прежний scrollLeft не прячет активную колонку. */
+    position: sticky;
+    left: calc(var(--tap) + .5rem);
+    z-index: 1;
+    background: var(--color-bg-table-head);
+  }
+  /* Внутреннее кольцо фокуса не обрезается областью прокрутки. */
+  .data-table--stacked .th-sort:focus-visible {
+    outline-offset: -2px;
   }
   .data-table--stacked th {
     position: static;
@@ -373,4 +411,17 @@
 
 .js [data-lazy-pending] {
   display: none;
+}
+
+.bulk-bar > .field {
+  margin-bottom: 0;
+}
+/* Общая ширина панели удерживает меню внутри полосы и на телефоне. */
+.bulk-bar .checkbox-menu {
+  position: static;
+}
+.bulk-bar .checkbox-menu__panel {
+  left: .75rem;
+  right: auto;
+  max-width: calc(100% - 1.5rem);
 }

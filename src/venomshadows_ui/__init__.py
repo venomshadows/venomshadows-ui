@@ -26,7 +26,7 @@ from .icons import icon
 
 __all__ = ["NavItem", "VenomUI", "__version__"]
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 EXTENSION_KEY = "venom_ui"
 

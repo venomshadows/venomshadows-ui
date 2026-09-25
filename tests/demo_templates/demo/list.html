@@ -3,7 +3,7 @@
 {% import 'venom_ui/list.html' as list %}
 {% set statuses = [('', 'Все'), ('new', 'Новый', 'accent'), ('in_use', 'В работе', 'success'), ('used', 'Использован', 'danger'), ('glued', 'Склеен', 'warning')] %}
 {% set brands = [('', 'Все бренды'), ('alpha', 'Alpha'), ('beta', 'Beta'), ('gamma', 'Gamma')] %}
-{% set columns = [{'key': 'domain', 'label': 'Домен'}, {'key': 'status', 'label': 'Статус'}, {'key': 'date', 'label': 'Дата', 'type': 'date'}, {'key': 'number', 'label': 'Число', 'type': 'number', 'align': 'end'}] %}
+{% set columns = [{'key': 'domain', 'label': 'Домен'}, {'key': 'status', 'label': 'Статус'}, {'key': 'date', 'label': 'Дата', 'type': 'date'}, {'key': 'number', 'label': 'Число', 'type': 'number', 'align': 'end'}, {'key': 'actions', 'label': 'Действия', 'sortable': False, 'align': 'end', 'width': '100'}] %}
 {% set server = server|default(false) %}
 {% set mode = 'server' if server else 'client' %}
 {% block title %}Демо списка — venom_shadows{% endblock %}
@@ -25,15 +25,20 @@
 {% endif %}
 <tr {{ list.row_attrs(row.domain ~ ' ' ~ row.brand, {'status': row.status, 'brand': row.brand}, {'domain': row.domain, 'status': row.status, 'date': row.date, 'number': row.number}, row.id, pending=not server and loop.index > 50) }}>
 {{ list.select_cell(row.id, row.domain, name=select_name) }}
-<td data-label="Домен">{{ row.domain }}</td><td data-label="Статус">{% for option in statuses if option[0] == row.status %}{{ ui.status_pill(option[2], option[1]) }}{% endfor %}</td><td data-label="Дата">{{ row.date }}</td><td data-label="Число" class="data-table__end">{{ row.number }}</td></tr>
+<td data-label="Домен">{{ row.domain }}</td><td data-label="Статус">{% for option in statuses if option[0] == row.status %}{{ ui.status_pill(option[2], option[1]) }}{% endfor %}</td><td data-label="Дата">{{ row.date }}</td><td data-label="Число" class="data-table__end">{{ row.number }}</td><td data-label="Действия"><a href="/demo/components">Открыть</a></td></tr>
 {% endfor %}
-{{ list.empty_row(5, hidden=not (server and not rows)) }}
+{{ list.empty_row(6, hidden=not (server and not rows)) }}
 </tbody>
 {% endcall %}
 {{ ui.btn("Отправить выбранные", type="submit", attrs={"data-submit-selection": ""}) }}
 </form>
 {% if not server %}{{ list.lazy_sentinel('domains') }}{% endif %}
-{% call list.bulk_bar('domains', label='Домены') %}<button type="button" class="btn btn--danger" data-demo-delete>{{ venom_icon('trash') }} Удалить</button>{% endcall %}
+{% set bulk_brands = [] %}
+{% for number in range(1, 38) %}{% set _ = bulk_brands.append((number, 'Бренд ' ~ number)) %}{% endfor %}
+{% call list.bulk_bar('domains', label='Домены') %}
+{{ ui.select('bulk-action', 'Действие', [('check', 'Проверить'), ('archive', 'В архив')]) }}
+{{ ui.checkbox_group('bulk-brands', 'Бренды', bulk_brands, checked=[1, 7], collapsible=true) }}
+<button type="button" class="btn btn--danger" data-demo-delete>{{ venom_icon('trash') }} Удалить</button>{% endcall %}
 </div>
 {% endblock %}
 {% block scripts %}
