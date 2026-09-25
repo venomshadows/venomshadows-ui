@@ -1,0 +1,196 @@
+{# Общая политика GET-параметров; пары добавляются в список без потери повторов. #}
+{% macro _query_args(query, keep=None, drop=('sort', 'dir', 'page')) -%}
+  {%- for key, value in request.args.items(multi=true) if (keep is not none and key in keep) or (keep is none and key not in drop) %}
+    {%- set _ = query.append((key, value)) %}
+  {%- endfor %}
+{%- endmacro %}
+
+{# Панель объединяет фильтры; сервер сам передаёт достоверные счётчики. #}
+{% macro filter_bar(target, mode='client', action=None, total=None, shown=None, label=None) -%}
+<form class="filter-bar" role="search" aria-label="Фильтры{% if label %}: {{ label }}{% endif %}" data-filter-bar
+      data-target="{{ target }}" data-mode="{{ mode }}"
+      {%- if mode == 'server' %} method="get"{% if action %} action="{{ action }}"{% endif %}{% endif %}>
+  {%- if mode == 'server' %}
+    {%- set query = [] %}
+    {{- _query_args(query, keep=('sort', 'dir')) }}
+    {%- for name, value in query %}
+      <input type="hidden" name="{{ name }}" value="{{ value }}">
+    {%- endfor %}
+  {%- endif %}
+  {{ caller() }}
+  <span class="filter-bar__count" data-list-count role="status" aria-live="polite">
+    {%- if total is not none %}{{ shown if shown is not none else total }} из {{ total }}{% endif -%}
+  </span>
+  {%- if mode == 'server' %}
+    {%- set active = namespace(value=false) %}
+    {%- set filters = [] %}
+    {{- _query_args(filters) }}
+    {%- for name, value in filters if value %}
+      {%- set active.value = true %}
+    {%- endfor %}
+    <a class="list-btn filter-bar__reset" data-list-reset href="{{ request.path }}{% if query %}?{{ query|urlencode }}{% endif %}"{% if not active.value %} aria-disabled="true" tabindex="-1"{% endif %}>
+      {{ venom_icon('x') }} Сбросить
+    </a>
+  {%- else %}
+    <button class="list-btn filter-bar__reset" type="button" data-list-reset disabled>
+      {{ venom_icon('x') }} Сбросить
+    </button>
+  {%- endif %}
+  {%- if mode == 'server' %}
+    <button type="submit" class="list-sr-only">Применить фильтры</button>
+  {%- endif %}
+</form>
+{%- endmacro %}
+
+{# Вложенный label не требует уникального id на странице с несколькими списками. #}
+{% macro search(name='q', label='Поиск', value='', placeholder='Поиск') -%}
+<label class="list-search">
+  <span class="list-sr-only">{{ label }}</span>
+  {{ venom_icon('search') }}
+  <input type="search" name="{{ name }}" value="{{ value }}"
+         placeholder="{{ placeholder }}" data-list-search autocomplete="off">
+</label>
+{%- endmacro %}
+
+{# Скрытое поле сохраняет выбранный чип при обычной GET-отправке. #}
+{% macro chips(name, label, options, selected=None, counts=None) -%}
+<div class="list-chips" role="group" aria-label="{{ label }}" data-chip-group="{{ name }}">
+  <input type="hidden" name="{{ name }}" value="{{ selected or '' }}" data-chip-value>
+  {%- for option in options %}
+    <button type="button" class="list-btn chip" data-chip="{{ option[0] }}"
+            {%- if option|length > 2 %} data-tone="{{ option[2] }}"{% endif %}
+            aria-pressed="{{ 'true' if option[0] == (selected or '') else 'false' }}">
+      {{- option[1] }}
+      <span class="chip__count" data-chip-count>{{ counts.get(option[0], '') if counts else '' }}</span>
+    </button>
+  {%- endfor %}
+</div>
+{%- endmacro %}
+
+{# Нативный select сохраняет клавиатурное управление и мобильный выбор. #}
+{% macro dropdown(name, label, options, selected=None) -%}
+<label class="list-dropdown">
+  <span class="list-dropdown__label">{{ label }}</span>
+  <span class="list-dropdown__control">
+    <select name="{{ name }}" data-list-filter>
+      {%- for option in options %}
+        {%- set value, text = option[0], option[1] %}
+        <option value="{{ value }}"{% if value == (selected or '') %} selected{% endif %}>{{ text }}</option>
+      {%- endfor %}
+    </select>
+    {{ venom_icon('chevron-down') }}
+  </span>
+</label>
+{%- endmacro %}
+
+{# Ссылки сохраняют повторяющиеся аргументы; новая сортировка сбрасывает страницу.
+   width: число в пикселях или строка цифр ASCII с необязательным %; прочее опускается.
+   class: строка дополнительных классов th для ширины в CSS сервиса при строгой CSP. #}
+{% macro sort_th(column, sort, dir, mode) -%}
+{%- set active = sort == column.key %}
+{%- set direction = dir if active else 'none' %}
+{%- set width = column.width|default(none) %}
+{%- set digits = width[:-1] if width is string and width.endswith('%') else width %}
+{%- set valid_width = (width is number and width is not boolean) or
+    (digits is string and digits.isascii() and digits.isdecimal()) %}
+<th scope="col" class="data-table__{{ column.align|default('start') }}{% if column.class is string and column.class %} {{ column.class }}{% endif %}"
+    {%- if valid_width %} width="{{ width }}"{% endif %}
+    {%- if column.sortable|default(true) %}
+      aria-sort="{{ 'ascending' if direction == 'asc' else ('descending' if direction == 'desc' else 'none') }}"
+    {%- endif %}>
+  {%- if column.sortable|default(true) %}
+    {%- if mode == 'server' %}
+      {%- set query = [] %}
+      {{- _query_args(query) }}
+      {%- set _ = query.append(('sort', column.key)) %}
+      {%- set _ = query.append(('dir', 'desc' if active and dir == 'asc' else 'asc')) %}
+      <a class="th-sort" href="{{ request.path }}?{{ query|urlencode }}">
+    {%- else %}
+      <button type="button" class="th-sort" data-sort-key="{{ column.key }}"
+              data-sort-type="{{ column.type|default('text') }}">
+    {%- endif %}
+      {{- column.label }}
+      <span data-sort-icon="none"{% if direction != 'none' %} hidden{% endif %}>
+        {{- venom_icon('chevrons-up-down') -}}
+      </span>
+      <span data-sort-icon="asc"{% if direction != 'asc' %} hidden{% endif %}>
+        {{- venom_icon('chevron-up') -}}
+      </span>
+      <span data-sort-icon="desc"{% if direction != 'desc' %} hidden{% endif %}>
+        {{- venom_icon('chevron-down') -}}
+      </span>
+    {%- if mode == 'server' %}</a>{% else %}</button>{% endif %}
+  {%- else %}{{ column.label }}{% endif %}
+</th>
+{%- endmacro %}
+
+{# caller отдаёт tbody; label различает области нескольких списков.
+   columns[].width: число (пиксели) или строка цифр ASCII с необязательным %;
+   остальные значения опускаются. columns[].class: дополнительные классы th,
+   например для относительной ширины в CSS сервиса; класс выравнивания сохраняется.
+   fixed ограничивает высоту: --table-max-height (по умолчанию 70vh).
+   Шапка липнет внутри этой области, а не при прокрутке всей страницы. #}
+{% macro data_table(id, columns, sort=None, dir='asc', mode='client', compact=False,
+                    stacked=False, selectable=False, label='Таблица', fixed=False) -%}
+<div class="table-scroll{% if fixed %} table-scroll--fixed{% endif %}"
+     role="region" aria-label="{{ label }}" tabindex="0">
+  <table id="{{ id }}"
+         class="data-table{% if compact %} data-table--compact{% endif %}{% if stacked %} data-table--stacked{% endif %}"
+         data-list-table data-mode="{{ mode }}" data-sort="{{ sort or '' }}" data-dir="{{ dir }}">
+    <thead>
+      <tr>
+        {%- if selectable %}
+          <th scope="col" class="data-table__select">
+            <label><input type="checkbox" data-select-all aria-label="Выбрать все видимые строки"></label>
+          </th>
+        {%- endif %}
+        {%- for column in columns %}
+          {{ sort_th(column, sort, dir, mode) }}
+        {%- endfor %}
+      </tr>
+    </thead>
+    {{ caller() }}
+  </table>
+</div>
+{%- endmacro %}
+
+{# Значения экранируются Jinja: текст поиска не становится HTML. #}
+{# pending откладывает показ только при html.js; без JS все строки доступны. #}
+{% macro row_attrs(search, filters={}, sort_values={}, id=None, pending=False) -%}
+data-row{% if pending %} data-lazy-pending{% endif %} data-search="{{ (search if search is not none else '')|lower }}" data-id="{{ id if id is not none else '' }}"
+{%- for name, value in filters.items() %} data-filter-{{ name }}="{{ value if value is not none else '' }}"{% endfor %}
+{%- for key, value in sort_values.items() %} data-sort-{{ key }}="{{ value if value is not none else '' }}"{% endfor %}
+{%- endmacro %}
+
+{# Действия передаёт сервис; библиотека отвечает только за выбор строк. #}
+{% macro bulk_bar(target, label=None) -%}
+<div class="bulk-bar" role="region" aria-label="Массовые действия{% if label %}: {{ label }}{% endif %}" data-bulk-bar data-target="{{ target }}" hidden>
+  <span role="status">Выбрано: <span data-selection-count>0</span></span>
+  {{ caller() }}
+  <button type="button" class="list-btn" data-clear-selection>{{ venom_icon('x') }} Снять выбор</button>
+</div>
+{%- endmacro %}
+
+{# Кнопка остаётся доступной альтернативой автоматической подгрузке. #}
+{% macro lazy_sentinel(target) -%}
+<div class="lazy-sentinel" data-lazy-sentinel data-target="{{ target }}" hidden>
+  <button type="button" class="list-btn" data-reveal-more>Показать ещё</button>
+</div>
+{%- endmacro %}
+
+{# Пустая строка не участвует в поиске; hidden=False нужен серверному списку. #}
+{% macro empty_row(colspan, text='Ничего не найдено', hidden=True) -%}
+<tr class="data-table__empty" data-empty-row{% if hidden %} hidden{% endif %}>
+  <td colspan="{{ colspan }}">{{ text }}</td>
+</tr>
+{%- endmacro %}
+
+{# Общая ячейка выбора сохраняет область нажатия 44px и доступное имя. #}
+{% macro select_cell(id, label) -%}
+<td class="data-table__select">
+  <label>
+    <input type="checkbox" data-row-select value="{{ id }}" aria-label="Выбрать {{ label }}">
+  </label>
+</td>
+{%- endmacro %}
+
