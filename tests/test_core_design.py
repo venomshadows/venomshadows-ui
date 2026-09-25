@@ -134,3 +134,12 @@ def test_layout_contracts():
             assert '--shadow-glow' not in body
     assert '@media (prefers-reduced-motion: reduce)' in css
     assert 'animation: none !important' in css
+
+
+def test_field_rule_has_element_specificity():
+    css = (STATIC / 'ui.css').read_text(encoding='utf-8')
+    fields = [selector for selector, body in css_rules(css)
+              if 'input' in selector and 'border: 1px solid var(--border);' in body]
+    assert len(fields) == 1
+    # All input exclusions must stay inside zero-specificity :where().
+    assert re.fullmatch(r'input:where\((?::not\(\[type="[a-z]+"\]\))+\), select, textarea', fields[0])

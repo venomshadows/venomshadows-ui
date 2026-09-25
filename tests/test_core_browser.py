@@ -4,51 +4,26 @@ pip install playwright; python -m playwright install chromium
 Без переменной обычный pytest не требует браузера.
 """
 
-import os
-from pathlib import Path
-from threading import Thread
 from urllib.parse import parse_qs
 
 import pytest
-from werkzeug.serving import make_server
-
-pytestmark = pytest.mark.skipif(not os.environ.get('VENOM_UI_BROWSER'), reason='Set VENOM_UI_BROWSER to run browser checks')
 
 
-@pytest.fixture
-def live_url(app):
-    server = make_server('127.0.0.1', 0, app, threaded=True)
-    thread = Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    yield f'http://127.0.0.1:{server.server_port}'
-    server.shutdown()
-    thread.join(timeout=5)
-
-
-@pytest.fixture(scope='module')
-def browser():
-    playwright = pytest.importorskip('playwright.sync_api')
-    with playwright.sync_playwright() as runtime:
-        channel = os.environ.get('VENOM_UI_BROWSER')
-        browser = runtime.chromium.launch(channel=None if channel == 'chromium' else channel)
-        yield browser
-        browser.close()
-
-
-@pytest.fixture
-def page(browser):
-    context = browser.new_context(reduced_motion='reduce')
-    page = context.new_page()
-    errors = []
-    page.on('pageerror', lambda error: errors.append(str(error)))
-    yield page
-    context.close()
-    assert not errors
+def test_invalid_field_border(page, live_url):
+    page.goto(live_url + '/demo/login')
+    assert page.locator('input[aria-invalid="true"]').first.evaluate('''el => {
+        const probe = document.createElement('span');
+        probe.style.borderColor = 'var(--color-danger-border)';
+        el.parentElement.append(probe);
+        const matches = getComputedStyle(el).borderColor === getComputedStyle(probe).borderColor;
+        probe.remove();
+        return matches;
+    }''')
 
 
 @pytest.mark.parametrize('width', [1600, 860, 360])
-@pytest.mark.parametrize('demo', ['settings', 'components', 'sidebar', 'login'])
-def test_responsive_demos(page, live_url, width, demo):
+@pytest.mark.parametrize('demo', ['settings', 'components', 'sidebar', 'login', 'list', 'list-server'])
+def test_responsive_demos(page, live_url, width, demo, screenshot):
     page.set_viewport_size({'width': width, 'height': 1000})
     page.goto(f'{live_url}/demo/{demo}')
     page.evaluate('document.fonts.ready')
@@ -56,10 +31,12 @@ def test_responsive_demos(page, live_url, width, demo):
     assert page.locator('h1').is_visible()
     if width == 1600 and demo == 'sidebar':
         assert page.locator('.sidebar').evaluate('(el) => el.getBoundingClientRect().width') == 320
-    if os.environ.get('VENOM_UI_SCREENSHOTS'):
-        folder = Path(os.environ['VENOM_UI_SCREENSHOTS'])
-        folder.mkdir(parents=True, exist_ok=True)
-        page.screenshot(path=str(folder / f'{demo}-{width}.png'), full_page=True)
+    if demo in ('list', 'list-server'):
+        assert page.locator('[data-list-search]').evaluate('''el => {
+            const icon = el.parentElement.querySelector('svg').getBoundingClientRect();
+            return el.getBoundingClientRect().left + parseFloat(getComputedStyle(el).paddingLeft) > icon.right;
+        }''')
+    screenshot(page, f'{demo}-{width}')
 
 
 def test_topbar_narrow_tab_order_and_wide_layout(page, live_url):

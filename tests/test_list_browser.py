@@ -1,36 +1,46 @@
-"""Необязательные проверки реального браузера: pip install playwright."""
-
-from pathlib import Path
-from threading import Thread
+"""Необязательные проверки реального браузера: pip install playwright; VENOM_UI_BROWSER=chrome."""
 
 import pytest
-from werkzeug.serving import make_server
 
 from demo_list_routes import create_app
 
-playwright = pytest.importorskip('playwright.sync_api')
+
+@pytest.mark.parametrize(('width', 'height'), [(1600, 36), (360, 44)])
+@pytest.mark.parametrize('demo', ['list', 'list-server'])
+def test_chip_resting_and_pressed_styles(page, live_url, width, height, demo):
+    page.set_viewport_size({'width': width, 'height': 1000})
+    page.goto(f'{live_url}/demo/{demo}?status=new')
+    pressed = page.locator('[data-chip="new"]')
+    resting = page.locator('[data-chip=""]')
+    assert pressed.get_attribute('aria-pressed') == 'true'
+    assert resting.get_attribute('aria-pressed') == 'false'
+    for property in ('color', 'borderColor', 'backgroundColor'):
+        read = '(el, property) => getComputedStyle(el)[property]'
+        assert pressed.evaluate(read, property) != resting.evaluate(read, property)
+    assert resting.bounding_box()['height'] == height
+    assert pressed.bounding_box()['height'] == height
 
 
-@pytest.fixture(scope='module')
-def browser():
-    with playwright.sync_playwright() as runner:
-        edge = Path('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe')
-        try:
-            browser = runner.chromium.launch(executable_path=str(edge) if edge.exists() else None)
-        except playwright.Error as exc:
-            pytest.skip(f'Браузер не установлен: {exc}')
-        yield browser
-        browser.close()
-
-
-@pytest.fixture(scope='module')
-def url():
-    server = make_server('127.0.0.1', 0, create_app())
-    thread = Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    yield f'http://127.0.0.1:{server.server_port}'
-    server.shutdown()
-    thread.join()
+def test_row_checkbox_keyboard_focus(page, live_url):
+    page.goto(live_url + '/demo/list')
+    page.locator('[data-select-all]').focus()
+    page.keyboard.press('Tab')
+    # Sort buttons precede row controls in the keyboard order.
+    for _ in range(10):
+        if page.locator('[data-row-select]').first.evaluate('(el) => el === document.activeElement'):
+            break
+        page.keyboard.press('Tab')
+    assert page.locator('[data-row-select]').first.evaluate('''el => {
+        const style = getComputedStyle(el);
+        const probe = document.createElement('span');
+        probe.style.color = 'var(--color-accent)';
+        el.parentElement.append(probe);
+        const matches = el.matches(':focus-visible') && style.outlineStyle === 'solid'
+            && style.outlineWidth === '2px' && style.outlineOffset === '2px'
+            && style.outlineColor === getComputedStyle(probe).color && style.boxShadow === 'none';
+        probe.remove();
+        return matches;
+    }''')
 
 
 def test_numeric_column_width_in_fixed_layout(browser, render):
@@ -49,11 +59,11 @@ def test_numeric_column_width_in_fixed_layout(browser, render):
     page.close()
 
 
-def test_filter_sort_selection_and_state(browser, url):
+def test_filter_sort_selection_and_state(browser, live_url):
     page = browser.new_page(viewport={'width': 1600, 'height': 900})
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     visible = page.locator('[data-row]:visible')
     assert visible.count() == 50
     page.locator('[data-select-all]').check()
@@ -86,12 +96,12 @@ def test_filter_sort_selection_and_state(browser, url):
     page.locator('[data-reveal-more]').click()
     assert visible.count() >= 100
     page.locator('[data-chip="used"]').click()
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     assert page.locator('[data-chip="used"]').get_attribute('aria-pressed') == 'true'
-    page.goto(url + '/demo/list?status=new')
+    page.goto(live_url + '/demo/list?status=new')
     assert page.locator('[data-chip="new"]').get_attribute('aria-pressed') == 'true'
     assert page.locator('select[name="brand"]').input_value() == ''
-    page.goto(url + '/demo/list?status=invalid&sort=invalid&dir=invalid')
+    page.goto(live_url + '/demo/list?status=invalid&sort=invalid&dir=invalid')
     assert page.locator('[data-chip=""]').get_attribute('aria-pressed') == 'true'
     assert not errors
     page.close()
@@ -99,9 +109,9 @@ def test_filter_sort_selection_and_state(browser, url):
 
 @pytest.mark.parametrize('width', [1600, 360])
 @pytest.mark.parametrize('path', ['/demo/list', '/demo/list-server'])
-def test_responsive_and_server(browser, url, width, path):
+def test_responsive_and_server(browser, live_url, width, path):
     page = browser.new_page(viewport={'width': width, 'height': 900})
-    page.goto(url + path)
+    page.goto(live_url + path)
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     if width == 360:
         page.locator('table').evaluate('(table) => table.classList.remove("data-table--stacked")')
@@ -122,9 +132,9 @@ def test_responsive_and_server(browser, url, width, path):
     page.close()
 
 
-def test_stable_sort_and_selection_event(browser, url):
+def test_stable_sort_and_selection_event(browser, live_url):
     page = browser.new_page()
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.evaluate('''() => {
       document.querySelectorAll('[data-row]').forEach(row => row.dataset.sortNumber = '1');
       document.querySelector('table').addEventListener('venomlist:selection', event => window.selectedIds = event.detail.ids);
@@ -143,10 +153,10 @@ def test_stable_sort_and_selection_event(browser, url):
     page.close()
 
 
-def test_no_observer_and_normalization(browser, url):
+def test_no_observer_and_normalization(browser, live_url):
     page = browser.new_page()
     page.add_init_script('delete window.IntersectionObserver;')
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     assert page.locator('[data-row]:visible').count() == 180
     page.locator('[data-row]').first.evaluate('(row) => row.dataset.search = "Ёжик зелёный"')
     page.locator('[data-list-search]').fill('ЗЕЛЕНЫЙ ежик')
@@ -155,9 +165,9 @@ def test_no_observer_and_normalization(browser, url):
 
 
 @pytest.mark.parametrize('key', ['number', 'date'])
-def test_invalid_sort_values_stay_last(browser, url, key):
+def test_invalid_sort_values_stay_last(browser, live_url, key):
     page = browser.new_page()
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.locator('[data-row]').evaluate_all('''(rows, key) => {
       rows[0].setAttribute('data-sort-' + key, '');
       rows[1].setAttribute('data-sort-' + key, 'invalid');
@@ -171,9 +181,9 @@ def test_invalid_sort_values_stay_last(browser, url, key):
 
 
 @pytest.mark.parametrize('path', ['/demo/list', '/demo/list-server'])
-def test_refresh_labels_and_scoped_selection(browser, url, path):
+def test_refresh_labels_and_scoped_selection(browser, live_url, path):
     page = browser.new_page()
-    page.goto(url + path)
+    page.goto(live_url + path)
     page.evaluate('''() => {
       const table = document.querySelector('table');
       const row = table.querySelector('[data-row]').cloneNode(true);
@@ -194,10 +204,10 @@ def test_refresh_labels_and_scoped_selection(browser, url, path):
     page.close()
 
 
-def test_server_selection_clean_submit_and_sort(browser, url):
+def test_server_selection_clean_submit_and_sort(browser, live_url):
     from urllib.parse import parse_qs, urlsplit
     page = browser.new_page()
-    page.goto(url + '/demo/list-server?sort=number&dir=desc')
+    page.goto(live_url + '/demo/list-server?sort=number&dir=desc')
     page.locator('[data-select-all]').check()
     assert page.locator('[data-selection-count]').inner_text() == '180'
     page.locator('[data-row-select]').first.uncheck()
@@ -209,7 +219,7 @@ def test_server_selection_clean_submit_and_sort(browser, url):
     assert page.locator('[data-bulk-bar]').is_hidden()
     # A persisted pageshow must restore only fields disabled by submit cleanup.
     page.evaluate('''() => {
-      const form = document.querySelector('form');
+      const form = document.querySelector('form.filter-bar');
       form.addEventListener('submit', event => event.preventDefault());
       form.requestSubmit();
     }''')
@@ -221,33 +231,33 @@ def test_server_selection_clean_submit_and_sort(browser, url):
     page.close()
 
 
-def test_server_without_javascript(browser, url):
+def test_server_without_javascript(browser, live_url):
     page = browser.new_page(java_script_enabled=False)
-    page.goto(url + '/demo/list-server?sort=number&dir=desc')
+    page.goto(live_url + '/demo/list-server?sort=number&dir=desc')
     page.locator('[data-list-search]').fill('domain-12')
     page.locator('[data-list-search]').press('Enter')
     page.wait_for_url('**/*q=domain-12*')
     assert 'sort=number' in page.url and 'dir=desc' in page.url
     assert page.locator('[data-row]').count() == 11
-    page.goto(url + '/demo/list-server?q=missing')
+    page.goto(live_url + '/demo/list-server?q=missing')
     assert page.locator('[data-empty-row]').is_visible()
     page.close()
 
 
 @pytest.mark.parametrize('fixed', [True, False])
-def test_lazy_keeps_revealing_while_sentinel_intersects(browser, url, fixed):
+def test_lazy_keeps_revealing_while_sentinel_intersects(browser, live_url, fixed):
     page = browser.new_page(viewport={'width': 1600, 'height': 900})
     page.add_init_script('''document.addEventListener('DOMContentLoaded', () => {
       // Tiny rows keep the sentinel intersecting across several batches.
       const style = document.createElement('style');
-      style.textContent = '.data-table tbody tr {height:1px} .data-table tbody td {height:1px;padding:0;font-size:0;border:0} .data-table tbody label {min-height:0;height:1px} .data-table tbody input {height:1px}';
+      style.textContent = '.data-table tbody tr {height:1px} .data-table tbody td {height:1px;padding:0;font-size:0;border:0} .data-table tbody label {min-height:0;height:1px} .data-table tbody input {height:1px} .data-table tbody .pill {height:1px;min-height:0;padding:0;border:0;font-size:0;line-height:0}';
       document.head.appendChild(style);
     });''')
     if not fixed:
         page.add_init_script('''document.addEventListener('DOMContentLoaded', () => {
           document.querySelector('.table-scroll').classList.remove('table-scroll--fixed');
         });''')
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.wait_for_function("document.querySelectorAll('[data-row]:not([hidden])').length === 180")
     # Keep >50 matches so the filter reset exercises the same sustained intersection.
     page.locator('[data-list-filter]').select_option('alpha')
@@ -256,9 +266,9 @@ def test_lazy_keeps_revealing_while_sentinel_intersects(browser, url, fixed):
 
 
 @pytest.mark.parametrize('width', [1600, 360])
-def test_sticky_header_and_stacked_geometry(browser, url, width, tmp_path):
+def test_sticky_header_and_stacked_geometry(browser, live_url, width):
     page = browser.new_page(viewport={'width': width, 'height': 900})
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     wrapper = page.locator('.table-scroll--fixed')
     header = page.locator('thead' if width == 360 else 'thead th').first
     before = header.bounding_box()['y']
@@ -278,14 +288,13 @@ def test_sticky_header_and_stacked_geometry(browser, url, width, tmp_path):
         first_value = page.locator('[data-row]').first.locator('td').nth(1)
         assert abs(first_value.bounding_box()['y'] - select.bounding_box()['y']) < 2
         assert page.locator('.list-chips').evaluate("el => getComputedStyle(el).scrollbarWidth") == 'thin'
-    page.screenshot(path=str(tmp_path / f'list-{width}.png'))
     page.close()
 
 
 @pytest.mark.parametrize('javascript', [True, False])
-def test_server_reset_navigation(browser, url, javascript):
+def test_server_reset_navigation(browser, live_url, javascript):
     page = browser.new_page(java_script_enabled=javascript)
-    page.goto(url + '/demo/list-server?q=missing&status=new&brand=alpha&page=3&sort=number&dir=desc')
+    page.goto(live_url + '/demo/list-server?q=missing&status=new&brand=alpha&page=3&sort=number&dir=desc')
     reset = page.locator('[data-list-reset]')
     assert reset.get_attribute('href') == '/demo/list-server?sort=number&dir=desc'
     reset.click()
@@ -296,10 +305,10 @@ def test_server_reset_navigation(browser, url, javascript):
     page.close()
 
 
-def test_lazy_selection_survives_sort_and_matching_filter(browser, url):
+def test_lazy_selection_survives_sort_and_matching_filter(browser, live_url):
     page = browser.new_page(viewport={'width': 1600, 'height': 900})
     page.add_init_script('window.IntersectionObserver = class { observe() {} disconnect() {} };')
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.evaluate('''() => {
       document.querySelector('table').addEventListener('venomlist:selection', event => window.selectedIds = event.detail.ids);
       document.querySelector('[data-reveal-more]').click();
@@ -327,7 +336,7 @@ def test_lazy_selection_survives_sort_and_matching_filter(browser, url):
 
 
 @pytest.mark.parametrize('query', ['?sort=domain', '?q=&status=invalid&brand=invalid'])
-def test_url_clears_prefilled_controls(browser, url, query):
+def test_url_clears_prefilled_controls(browser, live_url, query):
     page = browser.new_page()
     def prefill(route):
         html = create_app().test_client().get('/demo/list').text
@@ -337,7 +346,7 @@ def test_url_clears_prefilled_controls(browser, url, query):
         html = html.replace('<option value="alpha">', '<option value="alpha" selected>')
         route.fulfill(status=200, content_type='text/html', body=html)
     page.route('**/demo/list?*', prefill)
-    page.goto(url + '/demo/list' + query)
+    page.goto(live_url + '/demo/list' + query)
     for selector in ['[data-list-search]', '[data-chip-value]', '[data-list-filter]']:
         assert page.locator(selector).input_value() == ''
     page.locator('[data-list-search]').fill('domain-12')
@@ -347,9 +356,9 @@ def test_url_clears_prefilled_controls(browser, url, query):
     page.close()
 
 
-def test_chip_hover_and_empty_count(browser, url):
+def test_chip_hover_and_empty_count(browser, live_url):
     page = browser.new_page(java_script_enabled=False)
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     chip = page.locator('[data-chip="new"]')
     assert chip.locator('[data-chip-count]').evaluate('(el) => getComputedStyle(el).display') == 'none'
     chip.hover()
@@ -366,9 +375,9 @@ def test_chip_hover_and_empty_count(browser, url):
 
 
 @pytest.mark.parametrize('mode', ['list', 'list-server'])
-def test_stacked_roles_on_init_and_refresh(browser, url, mode):
+def test_stacked_roles_on_init_and_refresh(browser, live_url, mode):
     page = browser.new_page(viewport={'width': 360, 'height': 800})
-    page.goto(url + '/demo/' + mode)
+    page.goto(live_url + '/demo/' + mode)
     def assert_roles():
         assert page.locator('table').get_attribute('role') == 'table'
         for selector, role in [('thead, tbody', 'rowgroup'), ('tr', 'row'), ('th', 'columnheader'), ('td', 'cell')]:
@@ -387,9 +396,9 @@ def test_stacked_roles_on_init_and_refresh(browser, url, mode):
     page.close()
 
 
-def test_selection_event_ignores_reordering(browser, url):
+def test_selection_event_ignores_reordering(browser, live_url):
     page = browser.new_page()
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.evaluate('''() => {
       window.selections = [];
       document.querySelector('table').addEventListener('venomlist:selection', e => selections.push(e.detail.ids));
@@ -407,9 +416,9 @@ def test_selection_event_ignores_reordering(browser, url):
 
 
 @pytest.mark.parametrize('width', [360, 860])
-def test_chip_focus_ring_inside_scrollport(browser, url, width):
+def test_chip_focus_ring_inside_scrollport(browser, live_url, width):
     page = browser.new_page(viewport={'width': width, 'height': 800})
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.keyboard.press('Tab')
     for chip in [page.locator('[data-chip]').first, page.locator('[data-chip]').last]:
         chip.focus()
@@ -427,9 +436,9 @@ def test_chip_focus_ring_inside_scrollport(browser, url, width):
     page.close()
 
 
-def test_stacked_empty_state_centered(browser, url):
+def test_stacked_empty_state_centered(browser, live_url):
     page = browser.new_page(viewport={'width': 360, 'height': 800})
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     assert page.get_by_role('search', name='Фильтры: Домены').count() == 1
     page.locator('[data-row-select]').first.check()
     assert page.get_by_role('region', name='Массовые действия: Домены').is_visible()
@@ -445,23 +454,23 @@ def test_stacked_empty_state_centered(browser, url):
     page.close()
 
 
-def test_session_state_isolated_by_path(browser, url):
+def test_session_state_isolated_by_path(browser, live_url):
     page = browser.new_page()
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.locator('[data-list-search]').fill('domain-12')
     assert page.evaluate("JSON.parse(sessionStorage.getItem('venomlist:/demo/list#domains')).q") == 'domain-12'
     page.route('**/other-list', lambda route: route.fulfill(status=200, content_type='text/html', body=create_app().test_client().get('/demo/list').text))
-    page.goto(url + '/other-list')
+    page.goto(live_url + '/other-list')
     assert page.locator('[data-list-search]').input_value() == ''
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     assert page.locator('[data-list-search]').input_value() == 'domain-12'
     page.close()
 
 
 @pytest.mark.parametrize('action', ['clear-selection', 'demo-delete'])
-def test_bulk_focus_before_hiding(browser, url, action):
+def test_bulk_focus_before_hiding(browser, live_url, action):
     page = browser.new_page()
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.locator('[data-row-select]').first.check()
     page.locator('[data-' + action + ']').focus()
     page.keyboard.press('Enter')
@@ -471,10 +480,10 @@ def test_bulk_focus_before_hiding(browser, url, action):
 
 
 @pytest.mark.parametrize('checkboxes', [True, False])
-def test_final_reveal_focus(browser, url, checkboxes):
+def test_final_reveal_focus(browser, live_url, checkboxes):
     page = browser.new_page()
     page.add_init_script('window.IntersectionObserver = class { observe() {} disconnect() {} };')
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.evaluate('''checkboxes => {
       if (!checkboxes) document.querySelectorAll('[data-row-select]').forEach(el => el.remove());
       const button = document.querySelector('[data-reveal-more]');
@@ -488,19 +497,19 @@ def test_final_reveal_focus(browser, url, checkboxes):
 
 
 @pytest.mark.parametrize('js_class', [True, False])
-def test_pending_before_list_script_and_without_js(browser, url, js_class):
+def test_pending_before_list_script_and_without_js(browser, live_url, js_class):
     page = browser.new_page(java_script_enabled=js_class)
     page.route('**/list.js', lambda route: route.fulfill(status=200, body=''))
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     assert page.locator('[data-lazy-pending]').count() == 130
     assert page.locator('[data-row]:visible').count() == (50 if js_class else 180)
     page.close()
 
 
 @pytest.mark.parametrize(('width', 'touch'), [(690, False), (1600, True)])
-def test_touch_sort_header_height_and_colors(browser, url, width, touch):
+def test_touch_sort_header_height_and_colors(browser, live_url, width, touch):
     page = browser.new_page(viewport={'width': width, 'height': 900}, has_touch=touch)
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.locator('table').evaluate("el => el.classList.remove('data-table--stacked')")
     header = page.locator('th:has(> .th-sort)').first
     assert 44 <= header.bounding_box()['height'] <= 46
@@ -517,9 +526,9 @@ def test_touch_sort_header_height_and_colors(browser, url, width, touch):
     page.close()
 
 
-def test_slot_buttons_keep_core_styles(browser, url):
+def test_slot_buttons_keep_core_styles(browser, live_url):
     page = browser.new_page()
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.add_style_tag(content='.btn {background: rgb(1, 2, 3); color: rgb(4, 5, 6); padding: 3px;}')
     page.evaluate('''() => {
       document.querySelector('.filter-bar').insertAdjacentHTML('beforeend', '<button class="btn" id="slot">Action</button>');
@@ -532,14 +541,14 @@ def test_slot_buttons_keep_core_styles(browser, url):
     page.close()
 
 
-def test_original_order_uses_weak_keys_and_monotonic_indices(browser, url):
+def test_original_order_uses_weak_keys_and_monotonic_indices(browser, live_url):
     page = browser.new_page()
     page.add_init_script('''window.NativeWeakMap = WeakMap;
       window.orderValues = [];
       window.WeakMap = class extends NativeWeakMap {
         set(key, value) { if (key instanceof HTMLTableRowElement) orderValues.push(value); return super.set(key, value); }
       };''')
-    page.goto(url + '/demo/list')
+    page.goto(live_url + '/demo/list')
     page.evaluate('''() => {
       const table = document.querySelector('table'), body = table.tBodies[0];
       for (let n = 0; n < 2; n++) {
@@ -549,4 +558,20 @@ def test_original_order_uses_weak_keys_and_monotonic_indices(browser, url):
       }
     }''')
     assert page.evaluate('orderValues') == list(range(182))
+    page.close()
+
+
+@pytest.mark.parametrize("javascript", [True, False])
+def test_selection_plain_post(browser, live_url, javascript):
+    page = browser.new_page(java_script_enabled=javascript)
+    page.goto(live_url + "/demo/list")
+    if javascript:
+        page.locator("[data-select-all]").check()
+        page.locator("[data-select-all]").uncheck()
+    for id in ["2", "4"]:
+        page.locator(f'[data-row-select][value="{id}"]').check()
+    assert page.locator("[data-select-all]").get_attribute("name") is None
+    with page.expect_response("**/demo/list-selection") as response:
+        page.locator("[data-submit-selection]").click()
+    assert response.value.json() == {"ids": ["2", "4"], "fields": ["csrf_token", "ids"]}
     page.close()

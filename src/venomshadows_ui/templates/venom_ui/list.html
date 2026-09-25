@@ -28,16 +28,16 @@
     {%- for name, value in filters if value %}
       {%- set active.value = true %}
     {%- endfor %}
-    <a class="list-btn filter-bar__reset" data-list-reset href="{{ request.path }}{% if query %}?{{ query|urlencode }}{% endif %}"{% if not active.value %} aria-disabled="true" tabindex="-1"{% endif %}>
+    <a class="btn btn--secondary filter-bar__reset" data-list-reset href="{{ request.path }}{% if query %}?{{ query|urlencode }}{% endif %}"{% if not active.value %} aria-disabled="true" tabindex="-1"{% endif %}>
       {{ venom_icon('x') }} Сбросить
     </a>
   {%- else %}
-    <button class="list-btn filter-bar__reset" type="button" data-list-reset disabled>
+    <button class="btn btn--secondary filter-bar__reset" type="button" data-list-reset disabled>
       {{ venom_icon('x') }} Сбросить
     </button>
   {%- endif %}
   {%- if mode == 'server' %}
-    <button type="submit" class="list-sr-only">Применить фильтры</button>
+    <button type="submit" class="visually-hidden">Применить фильтры</button>
   {%- endif %}
 </form>
 {%- endmacro %}
@@ -45,7 +45,7 @@
 {# Вложенный label не требует уникального id на странице с несколькими списками. #}
 {% macro search(name='q', label='Поиск', value='', placeholder='Поиск') -%}
 <label class="list-search">
-  <span class="list-sr-only">{{ label }}</span>
+  <span class="visually-hidden">{{ label }}</span>
   {{ venom_icon('search') }}
   <input type="search" name="{{ name }}" value="{{ value }}"
          placeholder="{{ placeholder }}" data-list-search autocomplete="off">
@@ -57,7 +57,7 @@
 <div class="list-chips" role="group" aria-label="{{ label }}" data-chip-group="{{ name }}">
   <input type="hidden" name="{{ name }}" value="{{ selected or '' }}" data-chip-value>
   {%- for option in options %}
-    <button type="button" class="list-btn chip" data-chip="{{ option[0] }}"
+    <button type="button" class="btn chip" data-chip="{{ option[0] }}"
             {%- if option|length > 2 %} data-tone="{{ option[2] }}"{% endif %}
             aria-pressed="{{ 'true' if option[0] == (selected or '') else 'false' }}">
       {{- option[1] }}
@@ -130,8 +130,12 @@
    например для относительной ширины в CSS сервиса; класс выравнивания сохраняется.
    fixed ограничивает высоту: --table-max-height (по умолчанию 70vh).
    Шапка липнет внутри этой области, а не при прокрутке всей страницы. #}
+{# При заданном select_name обязательно используйте {% call(select_name) … %}.
+   select_name передаётся в caller: {% call(select_name) list.data_table(..., select_name='ids') %}
+   В строках: list.select_cell(id, label, name=select_name). Без select_name старый
+   caller без аргументов сохраняется. Флажок «выбрать все» всегда без name. #}
 {% macro data_table(id, columns, sort=None, dir='asc', mode='client', compact=False,
-                    stacked=False, selectable=False, label='Таблица', fixed=False) -%}
+                    stacked=False, selectable=False, label='Таблица', fixed=False, select_name=None) -%}
 <div class="table-scroll{% if fixed %} table-scroll--fixed{% endif %}"
      role="region" aria-label="{{ label }}" tabindex="0">
   <table id="{{ id }}"
@@ -149,7 +153,7 @@
         {%- endfor %}
       </tr>
     </thead>
-    {{ caller() }}
+    {{ caller(select_name=select_name) if select_name is not none else caller() }}
   </table>
 </div>
 {%- endmacro %}
@@ -167,14 +171,14 @@ data-row{% if pending %} data-lazy-pending{% endif %} data-search="{{ (search if
 <div class="bulk-bar" role="region" aria-label="Массовые действия{% if label %}: {{ label }}{% endif %}" data-bulk-bar data-target="{{ target }}" hidden>
   <span role="status">Выбрано: <span data-selection-count>0</span></span>
   {{ caller() }}
-  <button type="button" class="list-btn" data-clear-selection>{{ venom_icon('x') }} Снять выбор</button>
+  <button type="button" class="btn btn--secondary" data-clear-selection>{{ venom_icon('x') }} Снять выбор</button>
 </div>
 {%- endmacro %}
 
 {# Кнопка остаётся доступной альтернативой автоматической подгрузке. #}
 {% macro lazy_sentinel(target) -%}
 <div class="lazy-sentinel" data-lazy-sentinel data-target="{{ target }}" hidden>
-  <button type="button" class="list-btn" data-reveal-more>Показать ещё</button>
+  <button type="button" class="btn btn--secondary" data-reveal-more>Показать ещё</button>
 </div>
 {%- endmacro %}
 
@@ -186,10 +190,10 @@ data-row{% if pending %} data-lazy-pending{% endif %} data-search="{{ (search if
 {%- endmacro %}
 
 {# Общая ячейка выбора сохраняет область нажатия 44px и доступное имя. #}
-{% macro select_cell(id, label) -%}
+{% macro select_cell(id, label, name=None) -%}
 <td class="data-table__select">
   <label>
-    <input type="checkbox" data-row-select value="{{ id }}" aria-label="Выбрать {{ label }}">
+    <input type="checkbox" data-row-select{% if name %} name="{{ name }}"{% endif %} value="{{ id }}" aria-label="Выбрать {{ label }}">
   </label>
 </td>
 {%- endmacro %}

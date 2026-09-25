@@ -255,3 +255,32 @@ def test_shared_query_policy_preserves_repeated_sort_args(render):
     tags = Tags(html)
     assert [(x['name'], x['value']) for x in tags.find('input')] == [('sort', 'a'), ('sort', 'b'), ('dir', 'desc')]
     assert parse_qs(urlsplit(tags.find('a')[0]['href']).query) == {'sort': ['a', 'b'], 'dir': ['desc']}
+
+
+@pytest.mark.parametrize("checked", [[], ["1"], ["2", "4"]])
+def test_selection_plain_post(checked):
+    from werkzeug.datastructures import MultiDict
+    client = create_app().test_client()
+    html = client.get("/demo/list").text
+    inputs = Tags(html).find("input")
+    rows = [item for item in inputs if "data-row-select" in item]
+    assert len(rows) == 180
+    assert all(item["name"] == "ids" for item in rows)
+    assert all("name" not in item for item in inputs if "data-select-all" in item)
+    payload = MultiDict((item["name"], item["value"]) for item in rows if item["value"] in checked)
+    response = client.post("/demo/list-selection", data=payload)
+    assert response.json == {"ids": checked, "fields": ["ids"] if checked else []}
+
+
+def test_selection_name_escaping_and_default(render):
+    html = render(IMPORT + '{{ list.select_cell(id, "Row", name=name) }}',
+                  id='a"<&', name='ids"<&')
+    checkbox = Tags(html).find("input")[0]
+    assert checkbox["name"] == 'ids"<&'
+    assert checkbox["value"] == 'a"<&'
+    assert "name" not in Tags(render(IMPORT + '{{ list.select_cell(1, "Row") }}')).find("input")[0]
+    assert "name" not in Tags(render(IMPORT + '{{ list.select_cell(1, "Row", name="") }}')).find("input")[0]
+    html = render(IMPORT + '''{% call(select_name) list.data_table("rows", [], selectable=true) %}
+        <tbody><tr>{{ list.select_cell(7, "Row", name=select_name) }}</tr></tbody>
+        {% endcall %}''')
+    assert all('name' not in checkbox for checkbox in Tags(html).find('input'))

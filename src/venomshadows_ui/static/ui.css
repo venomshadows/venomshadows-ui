@@ -460,7 +460,7 @@ code, kbd {
   grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
   gap: 0 1.25rem;
 }
-input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="range"]):not([type="color"]), select, textarea {
+input:where(:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="range"]):not([type="color"])), select, textarea {
   width: 100%;
   min-width: 0;
   min-height: var(--tap);
@@ -474,10 +474,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="h
 }
 textarea { resize: vertical; }
 input::placeholder, textarea::placeholder { color: var(--color-text-placeholder); opacity: 1; }
-input:focus-visible, select:focus-visible, textarea:focus-visible {
+input:where(:not([type="checkbox"]):not([type="radio"])):focus-visible, select:focus-visible, textarea:focus-visible {
   outline: none;
   border-color: var(--color-accent);
   box-shadow: var(--focus-ring);
+}
+input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 input:user-invalid, select:user-invalid, textarea:user-invalid, [aria-invalid="true"] { border-color: var(--color-danger-border); }
 .checkbox-row {

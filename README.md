@@ -123,6 +123,15 @@ view с подчёркиванием на конце. В шаблоне `nav_act
 | `confirm_dialog()` | Общий диалог подтверждения; уже включён один раз в app. |
 | `auth_steps(current, total, labels)` | Нумерованные с единицы шаги входа. |
 
+Макросы списков импортируются отдельно: `{% import "venom_ui/list.html" as list %}`.
+
+| Макрос из `list.html` | Назначение |
+| --- | --- |
+| `filter_bar(target, …)`, `search(…)`, `chips(…)`, `dropdown(…)` | Панель поиска и фильтров; содержимое панели через caller. |
+| `data_table(id, columns, …, select_name=None)`, `sort_th(…)` | Таблица с сортировкой; строки через caller. |
+| `row_attrs(…)`, `select_cell(id, label, name=None)` | Данные строки и флажок выбора; name включает отправку id формой. |
+| `bulk_bar(target, …)`, `lazy_sentinel(target)`, `empty_row(colspan, …)` | Массовые действия, постепенное раскрытие и пустое состояние. |
+
 Категории баннеров: `success`, `info`, `warning`, `error`; `danger` отображается
 как `error`, `message` и неизвестные категории — как `info`. Текст и атрибуты
 экранирует Jinja. Не передавайте непроверенный `Markup` в макросы.
@@ -131,6 +140,8 @@ SMTP-пароль никогда не передавайте в шаблон: `h
 На сервере пустое поле должно сохранять прежний пароль; `<name>__clear=1`
 должно удалять его. Telegram-токены и API-ключи всегда видимы: `field(type='text')`
 или `api_key_block`. Действия выпуска и отзыва задаёт сервис отдельными кнопками.
+Базовое правило полей использует `:where()` и специфичность элемента: `[aria-invalid="true"]` / `:user-invalid` задают рамку ошибки, а `:focus-visible` — рамку фокуса.
+
 Формы нельзя вкладывать в `settings_section` с заполненным `action`.
 
 ## Поведение ui.js
@@ -191,7 +202,7 @@ python -m venv .venv
 .venv\Scripts\python -m playwright install chromium
 $env:VENOM_UI_BROWSER = 'chromium' # или установленный chrome / msedge
 $env:VENOM_UI_SCREENSHOTS = 'C:\Temp\venom-ui-screenshots' # необязательно
-.venv\Scripts\python -m pytest tests/test_core_browser.py -q
+.venv\Scripts\python -m pytest -q
 ```
 
 CSS-проверки охватывают все `static/*.css`, включая слой списков, а проверка
@@ -202,3 +213,42 @@ CSS-проверки охватывают все `static/*.css`, включая 
 Секции настроек получают якорь `#settings-<id>` (например, `#settings-telegram`); имя скрытого поля `section` не меняется.
 
 `base.html` добавляет класс `.js` элементу `<html>` до загрузки CSS: `list.css` использует `html.js`, чтобы скрывать строки после первой порции только при включённом JavaScript.
+
+## Списки
+
+Страница со списком наследует `venom_ui/app.html`: каркас подключает общие стили и скрипты.
+В режиме `client` поиск, фильтры и сортировка работают по данным `row_attrs`
+в браузере. В режиме `server` GET-параметры обрабатывает сервис, который
+возвращает строки, счётчики и выбранные фильтры; этот режим работает и без JS.
+Режим должен совпадать у `filter_bar` и `data_table`.
+
+В режиме `client` состояние хранится в URL и `sessionStorage` отдельно для пути страницы и id
+таблицы; параметры URL имеют приоритет. В режиме `server` состояние хранится только в URL.
+`fixed=true` у `data_table` ограничивает
+высоту области прокрутки (`--table-max-height`, по умолчанию `70vh`), чтобы
+заголовок оставался виден на длинных списках. `stacked=true` включает карточки
+на узком экране. Правило `.js [data-lazy-pending]` скрывает строки после первой
+порции до запуска списка; без JavaScript все строки доступны.
+
+Для обычной POST-формы передайте имя поля один раз через `select_name`:
+`data_table` передаёт его в caller, а `select_cell` добавляет имя и значение id.
+Флажок «выбрать все» всегда без имени и не отправляется.
+
+```jinja
+<form method="post" action="/bulk">
+  {{ venom_ui.csrf() }}
+  {% call(select_name) list.data_table('items', columns, selectable=true, select_name='ids') %}
+    <tbody>
+    {% for row in rows %}
+      <tr {{ list.row_attrs(row.title, id=row.id) }}>
+        {{ list.select_cell(row.id, row.title, name=select_name) }}
+        <td>{{ row.title }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  {{ ui.btn('Обработать выбранные') }}
+</form>
+```
+
+Сервис получает выбранные значения через `request.form.getlist('ids')`.

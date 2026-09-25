@@ -1,9 +1,21 @@
 """Контракты макросов проверяются по DOM, а не по отступам HTML."""
 
 from html.parser import HTMLParser
+import re
 
 import pytest
 from flask import flash
+
+
+@pytest.mark.parametrize('demo', ['list', 'list-server'])
+def test_list_topbar_matches_core(client, demo):
+    def topbar(path):
+        response = client.get(path)
+        assert response.status_code == 200
+        return re.search(r'<header\b[^>]*class="topbar".*?</header>',
+                         response.get_data(as_text=True), re.S).group()
+
+    assert topbar('/demo/' + demo) == topbar('/demo/components')
 
 
 class Node:

@@ -44,6 +44,11 @@ def server_list():
                            brand=brand, sort=sort, direction=direction, counts=counts)
 
 
+@bp.post("/demo/list-selection")
+def list_selection():
+    return {"ids": request.form.getlist("ids"), "fields": sorted(request.form.keys())}
+
+
 def create_app():
     app = create_base_app()
     app.register_blueprint(bp)

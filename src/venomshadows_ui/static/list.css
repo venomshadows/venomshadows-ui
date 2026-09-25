@@ -1,20 +1,6 @@
 /* Стили ограничены списком, чтобы подключение на любой странице было безопасным. */
 /* ══ Панель фильтров ═══════════════════════════════════════════════════ */
-.filter-bar, .filter-bar *, .table-scroll, .data-table *, .bulk-bar, .bulk-bar * {
-  box-sizing: border-box;
-}
-.list-sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-}
-.list-sr-only:focus {
+.filter-bar .visually-hidden:focus {
   position: static;
   width: auto;
   height: auto;
@@ -32,35 +18,15 @@
   color: var(--color-text-primary);
   font-size: var(--text-sm);
 }
-.list-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: .4rem;
-  padding: .5rem .75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-sunken);
-  color: var(--color-text-secondary);
-  font-family: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  text-decoration: none;
-  cursor: pointer;
-}
-.list-btn:hover {
-  background: var(--color-bg-hover);
-}
-.list-btn:disabled, .filter-bar__reset[aria-disabled="true"] {
+.filter-bar__reset[aria-disabled="true"] {
   pointer-events: none;
   color: var(--color-text-disabled);
   background: var(--color-bg-disabled);
+  border-color: var(--border);
   cursor: default;
 }
-.list-btn:focus-visible, .list-search input:focus-visible, .list-dropdown select:focus-visible, .th-sort:focus-visible, .table-scroll:focus-visible, .data-table input:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
+/* Кольцо core помещается в отступ прокручиваемой группы чипов. */
+.filter-bar .chip:focus-visible { outline-offset: 2px; }
 /* ══ Поиск ═══════════════════════════════════════════════════ */
 .list-search {
   position: relative;
@@ -75,28 +41,8 @@
   pointer-events: none;
   color: var(--color-text-secondary);
 }
-.list-search input, .list-dropdown select {
-  width: 100%;
-  min-width: 0;
-  min-height: var(--tap);
-  padding: .6rem .9rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-sunken);
-  color: var(--color-text-primary);
-  font-family: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-regular);
-}
 .list-search input {
   padding-left: 2.6rem;
-}
-.list-search input::placeholder {
-  color: var(--color-text-placeholder);
-}
-.list-search input:focus, .list-dropdown select:focus {
-  border-color: var(--color-accent);
-  box-shadow: var(--focus-ring);
 }
 /* ══ Чипы ═══════════════════════════════════════════════════ */
 .list-chips {
@@ -110,6 +56,12 @@
 }
 .filter-bar .chip {
   flex: 0 0 auto;
+  min-height: 0;
+  padding: .5rem .75rem;
+  gap: .4rem;
+  background: var(--color-bg-sunken);
+  color: var(--color-text-secondary);
+  border-color: var(--border);
   height: 2.25rem;
   border-radius: var(--radius-pill);
   white-space: nowrap;
@@ -198,9 +150,6 @@
   color: var(--color-text-secondary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-}
-.filter-bar .filter-bar__reset {
-  min-height: var(--tap);
 }
 /* min-width: 0 важен для таблиц внутри flex/grid-страницы. */
 /* ══ Таблица ═══════════════════════════════════════════════════ */
@@ -319,9 +268,6 @@
   color: var(--color-text-primary);
   font-size: var(--text-sm);
 }
-.bulk-bar .list-btn, .lazy-sentinel .list-btn {
-  min-height: var(--tap);
-}
 /* ══ Постепенное раскрытие ═══════════════════════════════════════════════════ */
 .lazy-sentinel {
   padding: 1rem;
@@ -331,14 +277,6 @@
   padding: 2rem;
   text-align: center;
   color: var(--color-text-secondary);
-}
-.data-table [hidden], .bulk-bar[hidden], .lazy-sentinel[hidden] {
-  display: none !important;
-}
-@media (max-width: 860px) {
-  .list-search input, .list-dropdown select {
-    font-size: var(--text-base);
-  }
 }
 @media (pointer: coarse) {
   .filter-bar .chip, .th-sort {
