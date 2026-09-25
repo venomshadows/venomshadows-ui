@@ -1,0 +1,21 @@
+{% extends "venom_ui/base.html" %}
+{% import "venom_ui/macros.html" as ui %}
+{% block body %}
+  {% set sidebar_html = self.sidebar() %}
+  <a class="skip-link" href="#main" data-sidebar-behind>К содержимому</a>
+  {{ ui.topbar(venom_ui.active_nav(nav_active|default(none)), burger=sidebar_html|trim != '') }}
+  {% if sidebar_html|trim %}<div class="sidebar-backdrop" data-sidebar-close hidden></div>{% endif %}
+  <div class="layout">
+    {% if sidebar_html|trim %}
+      {% call ui.sidebar(sidebar_title|default('Бренды')) %}{{ sidebar_html }}{% endcall %}
+    {% endif %}
+    <main class="content" id="main" tabindex="-1" data-sidebar-behind>
+      {% block subnav %}{% endblock %}
+      {{ ui.flash_stack() }}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  {{ ui.confirm_dialog() }}
+{% endblock %}
+{# Блок вызывается один раз внутри aside; пустой блок убирает меню целиком. #}
+{% block sidebar %}{% endblock %}

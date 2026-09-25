@@ -1,0 +1,13 @@
+{% extends "venom_ui/auth.html" %}
+{% set auth_step = 1 %}
+{% block title %}Вход — venom_shadows{% endblock %}
+{% block auth_content %}
+<h1>Вход</h1><p class="auth__hint">Введите логин и пароль, чтобы продолжить.</p>
+<div id="auth-error">{{ ui.banner('error', 'Неверный логин или пароль.', closable=false, inline=true) }}</div>
+<form method="post" action="/login">
+  {{ venom_ui.csrf() }}
+  {{ ui.field('username', 'Логин', required=true, attrs={'autocomplete': 'username', 'aria-invalid': 'true', 'aria-describedby': 'auth-error'}) }}
+  {{ ui.field('password', 'Пароль', type='password', required=true, attrs={'autocomplete': 'current-password', 'aria-invalid': 'true', 'aria-describedby': 'auth-error'}) }}
+  {{ ui.btn('Продолжить', icon='arrow-right', attrs={'data-busy-label': 'Проверяется…'}) }}
+</form>
+{% endblock %}
