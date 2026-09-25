@@ -1,0 +1,438 @@
+/* Стили ограничены списком, чтобы подключение на любой странице было безопасным. */
+/* ══ Панель фильтров ═══════════════════════════════════════════════════ */
+.filter-bar, .filter-bar *, .table-scroll, .data-table *, .bulk-bar, .bulk-bar * {
+  box-sizing: border-box;
+}
+.list-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.list-sr-only:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  clip-path: none;
+}
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 1rem;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+}
+.list-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  padding: .5rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-sunken);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+}
+.list-btn:hover {
+  background: var(--color-bg-hover);
+}
+.list-btn:disabled, .filter-bar__reset[aria-disabled="true"] {
+  pointer-events: none;
+  color: var(--color-text-disabled);
+  background: var(--color-bg-disabled);
+  cursor: default;
+}
+.list-btn:focus-visible, .list-search input:focus-visible, .list-dropdown select:focus-visible, .th-sort:focus-visible, .table-scroll:focus-visible, .data-table input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+/* ══ Поиск ═══════════════════════════════════════════════════ */
+.list-search {
+  position: relative;
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+.list-search > .icon {
+  position: absolute;
+  left: .8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--color-text-secondary);
+}
+.list-search input, .list-dropdown select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: .6rem .9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-sunken);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+}
+.list-search input {
+  padding-left: 2.6rem;
+}
+.list-search input::placeholder {
+  color: var(--color-text-placeholder);
+}
+.list-search input:focus, .list-dropdown select:focus {
+  border-color: var(--color-accent);
+  box-shadow: var(--focus-ring);
+}
+/* ══ Чипы ═══════════════════════════════════════════════════ */
+.list-chips {
+  display: flex;
+  gap: .4rem;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: .25rem;
+}
+.filter-bar .chip {
+  flex: 0 0 auto;
+  height: 2.25rem;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.filter-bar .chip:hover {
+  color: var(--color-text-primary);
+  border-color: var(--border-bright);
+}
+.chip__count:empty {
+  display: none;
+}
+.chip__count {
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  opacity: .8;
+}
+.filter-bar .chip[aria-pressed="true"] {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
+}
+.filter-bar .chip[data-tone="success"] {
+  --chip-text: var(--color-success-text);
+  --chip-bg: var(--color-success-bg);
+  --chip-border: var(--color-success-border);
+}
+.filter-bar .chip[data-tone="danger"] {
+  --chip-text: var(--color-danger-text);
+  --chip-bg: var(--color-danger-bg);
+  --chip-border: var(--color-danger-border);
+}
+.filter-bar .chip[data-tone="warning"] {
+  --chip-text: var(--color-warning-text);
+  --chip-bg: var(--color-warning-bg);
+  --chip-border: var(--color-warning-border);
+}
+.filter-bar .chip[data-tone="partial"] {
+  --chip-text: var(--color-partial-text);
+  --chip-bg: var(--color-partial-bg);
+  --chip-border: var(--color-partial-border);
+}
+.filter-bar .chip[data-tone="neutral"] {
+  --chip-text: var(--color-neutral-text);
+  --chip-bg: var(--color-neutral-bg);
+  --chip-border: var(--color-neutral-border);
+}
+.filter-bar .chip[data-tone="accent"] {
+  --chip-text: var(--color-accent-text);
+  --chip-bg: var(--color-accent-subtle);
+  --chip-border: var(--color-accent);
+}
+.filter-bar .chip[data-tone][aria-pressed="true"] {
+  color: var(--chip-text);
+  background: var(--chip-bg);
+  border-color: var(--chip-border);
+}
+/* ══ Выпадающий список ═══════════════════════════════════════════════════ */
+.list-dropdown {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  max-width: 100%;
+  min-width: 0;
+}
+.list-dropdown__label {
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+}
+.list-dropdown__control {
+  position: relative;
+  min-width: 0;
+}
+.list-dropdown select {
+  appearance: none;
+  padding-right: 2.5rem;
+}
+.list-dropdown__control > .icon {
+  position: absolute;
+  right: .75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.filter-bar__count {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.filter-bar .filter-bar__reset {
+  min-height: var(--tap);
+}
+/* min-width: 0 важен для таблиц внутри flex/grid-страницы. */
+/* ══ Таблица ═══════════════════════════════════════════════════ */
+.table-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+.table-scroll--fixed {
+  max-height: var(--table-max-height, 70vh);
+  overflow: auto;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--color-text-primary);
+}
+.data-table th, .data-table td {
+  padding: .7rem .8rem;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+}
+.data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-bg-table-head);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--color-text-secondary);
+}
+.data-table td {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  font-variant-numeric: tabular-nums;
+}
+.data-table--compact th, .data-table--compact td {
+  padding: .55rem .75rem;
+}
+.data-table--compact td {
+  font-size: var(--text-caption);
+}
+.data-table tbody tr:hover {
+  background: var(--color-bg-hover);
+}
+.data-table tbody tr.is-selected {
+  background: var(--color-accent-subtle);
+}
+.data-table .data-table__end {
+  text-align: end;
+}
+/* ══ Сортировка ═══════════════════════════════════════════════════ */
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.th-sort:hover {
+  color: var(--color-text-primary);
+}
+.data-table th[aria-sort="ascending"] .th-sort,
+.data-table th[aria-sort="descending"] .th-sort {
+  color: var(--color-accent-text);
+}
+.th-sort [data-sort-icon] {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.th-sort [data-sort-icon="none"] {
+  opacity: .35;
+}
+/* ══ Выбор строк ═══════════════════════════════════════════════════ */
+.data-table .data-table__select {
+  width: var(--tap);
+  padding: 0;
+}
+.data-table__select label {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: var(--tap);
+  min-height: var(--tap);
+}
+.data-table input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+/* ══ Массовые действия ═══════════════════════════════════════════════════ */
+.bulk-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem;
+  background: var(--color-bg-table-head);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+}
+.bulk-bar .list-btn, .lazy-sentinel .list-btn {
+  min-height: var(--tap);
+}
+/* ══ Постепенное раскрытие ═══════════════════════════════════════════════════ */
+.lazy-sentinel {
+  padding: 1rem;
+  text-align: center;
+}
+.data-table .data-table__empty td {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+.data-table [hidden], .bulk-bar[hidden], .lazy-sentinel[hidden] {
+  display: none !important;
+}
+@media (max-width: 860px) {
+  .list-search input, .list-dropdown select {
+    font-size: var(--text-base);
+  }
+}
+@media (pointer: coarse) {
+  .filter-bar .chip, .th-sort {
+    min-height: var(--tap);
+  }
+  .data-table th:has(> .th-sort) {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+/* ══ Карточки на узком экране ═══════════════════════════════════════════════════ */
+@media (max-width: 699px) {
+  .list-search, .list-chips {
+    flex-basis: 100%;
+  }
+  .filter-bar .chip, .th-sort {
+    min-height: var(--tap);
+  }
+  .data-table th:has(> .th-sort) {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .data-table--stacked, .data-table--stacked tbody {
+    display: block;
+  }
+  /* Заголовки остаются доступны: сортировка работает и в карточном режиме. */
+  .data-table--stacked thead {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    width: 100%;
+    background: var(--color-bg-table-head);
+  }
+  .data-table--stacked thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .25rem .5rem;
+    padding: .25rem;
+  }
+  .data-table--stacked thead th {
+    background: none;
+    border: 0;
+  }
+  .data-table--stacked th {
+    position: static;
+    padding: .25rem .5rem;
+  }
+  .data-table--stacked tbody tr {
+    position: relative;
+    display: block;
+    margin-top: .75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .data-table--stacked tbody tr:has([data-row-select]) {
+    padding-inline-end: var(--tap);
+  }
+  .data-table--stacked tr:not(.data-table__empty) td {
+    text-align: end;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    overflow-wrap: anywhere;
+  }
+  .data-table--stacked td::before {
+    content: attr(data-label);
+    text-align: start;
+    flex: 0 0 35%;
+    font-size: var(--text-caption);
+    font-weight: var(--weight-medium);
+    color: var(--color-text-secondary);
+  }
+  .data-table--stacked td:last-child {
+    border-bottom: 0;
+  }
+  .data-table--stacked tbody .data-table__select {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: var(--tap);
+    border: 0;
+  }
+  .data-table--stacked thead .data-table__select {
+    flex: 0 0 var(--tap);
+    padding: 0;
+  }
+  .data-table--stacked .data-table__select::before, .data-table--stacked .data-table__empty td::before {
+    display: none;
+  }
+}
+
+.js [data-lazy-pending] {
+  display: none;
+}

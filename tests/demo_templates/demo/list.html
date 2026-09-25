@@ -1,0 +1,42 @@
+{% import 'venom_ui/list.html' as list %}
+{% set statuses = [('', 'Все'), ('new', 'Новый', 'accent'), ('in_use', 'В работе', 'success'), ('used', 'Использован', 'danger'), ('glued', 'Склеен', 'warning')] %}
+{% set brands = [('', 'Все бренды'), ('alpha', 'Alpha'), ('beta', 'Beta'), ('gamma', 'Gamma')] %}
+{% set columns = [{'key': 'domain', 'label': 'Домен'}, {'key': 'status', 'label': 'Статус'}, {'key': 'date', 'label': 'Дата', 'type': 'date'}, {'key': 'number', 'label': 'Число', 'type': 'number', 'align': 'end'}] %}
+{% set server = server|default(false) %}
+{% set mode = 'server' if server else 'client' %}
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Демо списка</title>
+{# В приложении этот ранний признак предоставляет core base.html. #}
+<script>document.documentElement.classList.add('js');</script>
+<link rel="stylesheet" href="{{ venom_ui.static('tokens.css') }}"><link rel="stylesheet" href="{{ venom_ui.static('list.css') }}"><script defer src="{{ venom_ui.static('list.js') }}"></script>
+<style>body { background: var(--bg); color: var(--color-text-primary); font-family: var(--font-sans); font-size: var(--text-base); font-weight: var(--weight-regular); }</style></head>
+<body><main class="page">
+{% call list.filter_bar('domains', mode=mode, label='Домены', action='/demo/list-server' if server else None, total=total if server else None, shown=rows|length if server else None) %}
+{{ list.search(value=q|default('')) }}
+{{ list.chips('status', 'Статус', statuses, selected=status|default(''), counts=counts|default(None)) }}
+{{ list.dropdown('brand', 'Бренд', brands, selected=brand|default('')) }}
+{% endcall %}
+{% call list.data_table('domains', columns, sort=sort|default(None), dir=direction|default('asc'), mode=mode, stacked=true, selectable=true, fixed=not server, label='Домены') %}
+<tbody>
+{% for item in (rows if server else range(1, 181)) %}
+{% if server %}{% set row = item %}{% else %}
+{% set row = {'id': item, 'domain': 'domain-' ~ item ~ '.example', 'status': statuses[1 + item % 4][0], 'brand': brands[1 + item % 3][0], 'date': '2026-%02d-%02d'|format(1 + (item // 28) % 12, 1 + item % 28), 'number': item * 7 % 101} %}
+{% endif %}
+<tr {{ list.row_attrs(row.domain ~ ' ' ~ row.brand, {'status': row.status, 'brand': row.brand}, {'domain': row.domain, 'status': row.status, 'date': row.date, 'number': row.number}, row.id, pending=not server and loop.index > 50) }}>
+{{ list.select_cell(row.id, row.domain) }}
+<td data-label="Домен">{{ row.domain }}</td><td data-label="Статус">{% for option in statuses if option[0] == row.status %}<span class="pill pill--{{ option[2] }}">{{ option[1] }}</span>{% endfor %}</td><td data-label="Дата">{{ row.date }}</td><td data-label="Число" class="data-table__end">{{ row.number }}</td></tr>
+{% endfor %}
+{{ list.empty_row(5, hidden=not (server and not rows)) }}
+</tbody>
+{% endcall %}
+{% if not server %}{{ list.lazy_sentinel('domains') }}{% endif %}
+{% call list.bulk_bar('domains', label='Домены') %}<button type="button" class="btn btn--danger" data-demo-delete>{{ venom_icon('trash') }} Удалить</button>{% endcall %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelector('[data-demo-delete]').addEventListener('click', function () {
+    document.querySelectorAll('#domains [data-row-select]:checked').forEach(function (box) { box.closest('tr').remove(); });
+    document.getElementById('domains').dispatchEvent(new Event('venomlist:refresh'));
+  });
+});
+</script>
+</main></body></html>
