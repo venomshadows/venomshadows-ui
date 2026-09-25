@@ -1,0 +1,8 @@
+{% extends "venom_ui/app.html" %}
+{% set sidebar_title = 'Бренды' %}
+{% block title %}Бренды — venom_shadows{% endblock %}
+{% block sidebar %}
+<nav aria-label="Бренды"><ul>{% for n in range(1, 31) %}<li><a href="/demo/sidebar?brand={{ n }}"{% if n == 1 %} aria-current="page"{% endif %}>{{ 'ОченьДлинноеНазваниеБрендаБезПробеловЧтобыПроверитьПереносНаМаленькомЭкране' if n == 2 else 'Бренд ' ~ n }}</a></li>{% endfor %}</ul></nav>
+{% endblock %}
+{% block subnav %}{{ ui.subnav([('overview', '/demo/sidebar', 'Обзор'), ('yandex', '/demo/sidebar?engine=yandex', 'Яндекс', 'yandex'), ('google', '/demo/sidebar?engine=google', 'Google', 'google'), ('history', '/demo/sidebar?tab=history', 'История проверок')], 'overview') }}{% endblock %}
+{% block content %}<div class="page">{{ ui.page_header('Бренд 1', lead='Проверки, запросы и результаты выбранного бренда.') }}<div class="panel">{{ ui.empty_state('Нет результатов', 'Запустите проверку, чтобы увидеть первые результаты.') }}</div></div>{% endblock %}

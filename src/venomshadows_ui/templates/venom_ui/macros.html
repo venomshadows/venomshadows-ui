@@ -1,0 +1,192 @@
+{# Иконки берутся из одного набора, не из системного шрифта. #}
+{% macro icon(name, class_='') -%}{{ venom_icon(name, class_) }}{%- endmacro %}
+{# Псевдоним сохраняет доступ к макросу при аргументе icon. #}
+{% set _icon = icon %}
+
+{# Картинка принадлежит сервису, маска и размеры общие. #}
+{% macro logo(context='topbar') -%}
+<img class="brand-logo brand-logo--{{ context }}" src="{{ venom_ui.logo_url() }}" alt="{{ venom_ui.logo_alt }}" width="800" height="333">
+{%- endmacro %}
+
+{# Название поисковика уже есть рядом, поэтому alt пустой. #}
+{% macro engine_logo(engine) -%}
+{% if engine in ('yandex', 'google') %}<img class="engine-logo" src="{{ venom_ui.static('img/' ~ engine ~ '.svg') }}" alt="" width="20" height="20">{% endif %}
+{%- endmacro %}
+
+{# Реестр сервиса определяет ссылки; выход всегда защищён POST-формой. #}
+{% macro topbar(active=None, burger=False) -%}
+{% set active = venom_ui.active_nav(active) %}
+<header class="topbar" data-sidebar-behind>
+  {% if burger %}<button class="icon-btn burger" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="sidebar" data-sidebar-toggle>{{ icon('menu') }}</button>{% endif %}
+  <a class="topbar__brand" href="{{ url_for(venom_ui.home_endpoint) }}" aria-label="{{ venom_ui.logo_alt }} — на главную">{{ logo() }}</a>
+  <form class="topbar__logout" method="post" action="{{ url_for(venom_ui.logout_endpoint) }}">
+    {{ venom_ui.csrf() }}<button class="topbar__logout-btn" type="submit">Выйти</button>
+  </form>
+  <nav class="topbar__nav" aria-label="Основная навигация">
+  {% for item in venom_ui.nav %}
+    <a class="topbar__tab{{ ' topbar__tab--active' if item.key == active }}" href="{{ url_for(item.endpoint) }}"{% if item.key == active %} aria-current="page"{% endif %}>{{ item.label }}</a>
+  {% endfor %}
+  </nav>
+</header>
+{%- endmacro %}
+
+{# На узком экране тот же список становится выезжающим меню. #}
+{% macro sidebar(title) -%}
+<aside class="sidebar" id="sidebar" tabindex="-1" aria-labelledby="sidebar-title" data-sidebar>
+  <div class="sidebar__head"><h2 id="sidebar-title">{{ title }}</h2><button class="icon-btn sidebar__close" type="button" aria-label="Закрыть меню" data-sidebar-close>{{ icon('x') }}</button></div>
+  <div class="sidebar__body">{{ caller() }}</div>
+</aside>
+{%- endmacro %}
+
+{# Вкладки прокручиваются внутри полосы, не расширяя страницу. #}
+{% macro subnav(items, active) -%}
+<nav class="subnav" aria-label="Разделы страницы">
+{% for item in items %}<a class="subnav__tab{{ ' subnav__tab--active' if item[0] == active }}" href="{{ item[1] }}"{% if item[0] == active %} aria-current="page"{% endif %}>{% if item|length > 3 %}{{ engine_logo(item[3]) }}{% endif %}{{ item[2] }}</a>{% endfor %}
+</nav>
+{%- endmacro %}
+
+{# Действия необязательны: обычный вызов не требует caller. #}
+{% macro page_header(title, count=None, lead=None) -%}
+<header class="page-header"><div class="page-header__text"><h1>{{ title }}{% if count is not none %} <span class="page-header__count">{{ count }}</span>{% endif %}</h1>{% if lead %}<p class="page-header__lead">{{ lead }}</p>{% endif %}</div>{% if caller is defined %}<div class="page-header__actions">{{ caller() }}</div>{% endif %}</header>
+{%- endmacro %}
+
+{# xmlattr экранирует значения дополнительных HTML-атрибутов. #}
+{% macro btn(label, variant='primary', type='submit', icon=None, small=False, attrs={}) -%}
+<button class="btn btn--{{ variant }}{{ ' btn--small' if small }}" type="{{ type }}"{{ attrs|xmlattr }}>{% if icon %}{{ _icon(icon) }}{% endif %}<span data-button-label>{{ label }}</span></button>
+{%- endmacro %}
+
+{# Подсказка и ошибка связаны с полем, а не только показаны рядом. #}
+{% macro _field_shell(id, label, hint=None, error=None, attrs={}) -%}
+{% set describedby = attrs.get('aria-describedby', (id ~ '-hint' if hint else '') ~ (' ' if hint and error else '') ~ (id ~ '-error' if error else '')) %}
+<div class="field">
+  {% if label is not none %}<label class="field__label" for="{{ id }}">{{ label }}</label>{% endif %}
+  {{ caller({'aria-describedby': describedby} if describedby else {}) }}
+  {% if hint %}<span class="field__hint" id="{{ id }}-hint">{{ hint }}</span>{% endif %}
+  {% if error %}<span class="field__error" id="{{ id }}-error">{{ error }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{# Оболочка связывает подпись и сообщения с заданным id. #}
+{% macro field(name, label, value='', type='text', hint=None, error=None, placeholder='', required=False, attrs={}) -%}
+{% set value = value if value is not none else '' %}
+{% set placeholder = placeholder if placeholder is not none else '' %}
+{% set id = attrs.get('id', name) %}
+{% call(description) _field_shell(id, label, hint, error, attrs) %}
+<input name="{{ name }}"{% if 'id' not in attrs %} id="{{ id }}"{% endif %} type="{{ type }}" value="{{ value }}" placeholder="{{ placeholder }}"{% if required %} required{% endif %}{% if error and 'aria-invalid' not in attrs %} aria-invalid="true"{% endif %}{% if 'aria-describedby' not in attrs %}{{ description|xmlattr }}{% endif %}{{ attrs|xmlattr }}>
+{% endcall %}
+{%- endmacro %}
+
+{# Вся строка — зона нажатия, подсказка связана с полем. #}
+{% macro checkbox(name, label, checked=False, hint=None) -%}
+{% call(description) _field_shell(name, None, hint) %}
+<label class="checkbox-row"><input type="checkbox" name="{{ name }}" value="1"{% if checked %} checked{% endif %}{{ description|xmlattr }}><span>{{ label }}</span></label>
+{% endcall %}
+{%- endmacro %}
+
+{# Значения options сравниваются строкой, включая числовые ключи. #}
+{% macro select(name, label, options, selected=None) -%}
+{% call(description) _field_shell(name, label) %}
+<select name="{{ name }}" id="{{ name }}"{{ description|xmlattr }}>{% for value, text in options %}<option value="{{ value }}"{% if selected is not none and value|string == selected|string %} selected{% endif %}>{{ text }}</option>{% endfor %}</select>
+{% endcall %}
+{%- endmacro %}
+
+{# Многострочное поле использует общую подпись и подсказку. #}
+{% macro textarea(name, label, value='', rows=4, hint=None) -%}
+{% set value = value if value is not none else '' %}
+{% call(description) _field_shell(name, label, hint) %}
+<textarea name="{{ name }}" id="{{ name }}" rows="{{ rows }}"{{ description|xmlattr }}>{{ value }}</textarea>
+{% endcall %}
+{%- endmacro %}
+
+{# SMTP-пароль только заменяется: сохранённое значение не попадает в HTML. #}
+{% macro secret_field(name, label, has_value, placeholder_hint='', clearable=False) -%}
+{% set placeholder_hint = placeholder_hint if placeholder_hint is not none else '' %}
+{% call(description) _field_shell(name, label) %}
+<input name="{{ name }}" id="{{ name }}" type="password" value="" autocomplete="new-password" placeholder="{{ placeholder_hint or ('•••••• (сохранён)' if has_value else '') }}"{% if has_value %} aria-describedby="{{ name }}-hint"{% endif %}>
+{% if has_value %}<span class="field__hint" id="{{ name }}-hint">Оставьте пустым, чтобы сохранить пароль.</span>{% endif %}
+{% if has_value and clearable %}<label class="checkbox-row"><input type="checkbox" name="{{ name }}__clear" id="{{ name }}__clear" value="1"><span>Очистить</span></label>{% endif %}
+{% endcall %}
+{%- endmacro %}
+
+{# Общая кнопка копирования сохраняет доступную текстовую подпись. #}
+{% macro copy_button(target_id, label='Копировать') -%}
+{{ btn(label, 'secondary', type='button', icon='copy', attrs={'data-copy-target': target_id, 'aria-live': 'polite'}) }}
+{%- endmacro %}
+
+{# Длинный ключ переносится целиком, без обрезки или режима раскрытия. #}
+{% macro api_key_block(key, id='api-key') -%}
+{% if key %}<div class="api-key"><pre id="{{ id }}">{{ key }}</pre>{{ copy_button(id) }}</div>{% endif %}
+{%- endmacro %}
+
+{# Настоящий input сохраняет клавиатурный выбор и проверку required. #}
+{% macro file_picker(name, id, label, multiple=False, accept='', required=False) -%}
+{% set empty_text = 'Файлы не выбраны' if multiple else 'Файл не выбран' %}
+<div class="field"><span class="field__label" id="{{ id }}-label">{{ label }}</span><div class="file-picker">
+  <input class="file-picker__input" type="file" name="{{ name }}" id="{{ id }}" data-file-input="{{ id }}-status" aria-labelledby="{{ id }}-label {{ id }}-button" aria-describedby="{{ id }}-status"{% if multiple %} multiple{% endif %}{% if accept %} accept="{{ accept }}"{% endif %}{% if required %} required{% endif %}>
+  <label for="{{ id }}" class="btn btn--secondary file-picker__button" id="{{ id }}-button">{{ 'Выбрать файлы' if multiple else 'Выбрать файл' }}</label>
+  <span class="file-picker__status" id="{{ id }}-status" data-file-status data-empty-text="{{ empty_text }}" aria-live="polite">{{ empty_text }}</span>
+</div></div>
+{%- endmacro %}
+
+{# Состояние названо текстом; точка только дублирует его цветом. #}
+{% macro state_marker(on, on_text='Настроено', off_text='Не настроено') -%}
+<span class="state-marker{{ ' state-marker--on' if on }}"><span class="state-marker__dot" aria-hidden="true"></span>{{ on_text if on else off_text }}</span>
+{%- endmacro %}
+
+{# Тон не зависит от бизнес-статуса конкретного сервиса. #}
+{% macro status_pill(tone, label, icon=None) -%}
+<span class="pill pill--{{ tone if tone in ('success', 'danger', 'warning', 'partial', 'accent', 'neutral') else 'neutral' }}">{% if icon %}{{ _icon(icon) }}{% endif %}{{ label }}</span>
+{%- endmacro %}
+
+{# Каждая секция сохраняется своей формой, без вложенных форм. #}
+{% macro settings_section(id, title, marker_on, marker_on_text='Настроено', marker_off_text='Не настроено', hint=None, action=None, section=None) -%}
+<section class="panel settings-section" id="settings-{{ id }}" aria-labelledby="{{ id }}-title">
+  <div class="settings-section__head"><h2 id="{{ id }}-title">{{ title }}</h2>{{ state_marker(marker_on, marker_on_text, marker_off_text) }}</div>
+  {% if hint %}<p class="settings-section__hint">{{ hint }}</p>{% endif %}
+  {% if action %}<form method="post" action="{{ action }}">{{ venom_ui.csrf() }}<input type="hidden" name="section" value="{{ section if section is not none else id }}">{{ caller() }}</form>{% else %}{{ caller() }}{% endif %}
+</section>
+{%- endmacro %}
+
+{# Проверка отправляет поля той же секции на отдельный обработчик. #}
+{% macro settings_actions(save_label='Сохранить', test_label=None, test_action=None) -%}
+<div class="settings-actions">{{ btn(save_label, attrs={'data-busy-label': 'Сохраняется…'}) }}{% if test_label %}{{ btn(test_label, 'secondary', attrs={'formaction': test_action, 'data-busy-label': 'Проверяется…'}) }}{% endif %}</div>
+{%- endmacro %}
+
+{# Незнакомая категория остаётся информационной, а не ломает оформление. #}
+{% macro flash_stack() -%}
+{% set messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-stack banner-stack" data-flash-stack>{% for category, text in messages %}{{ banner(category, text) }}{% endfor %}</div>{% endif %}
+{%- endmacro %}
+
+{# Подробности раскрываются отдельно, чтобы длинная ошибка не заняла экран. #}
+{% macro banner(category, text, details=None, closable=True, inline=False) -%}
+{% set category = 'error' if category == 'danger' else category if category in ('success', 'info', 'warning', 'error') else 'info' %}
+{% set icons = {'success': 'check-circle', 'info': 'info', 'warning': 'alert-triangle', 'error': 'alert-circle'} %}
+<div class="banner banner--{{ category }}{{ ' banner--inline' if inline }}" role="{{ 'alert' if category in ('warning', 'error') else 'status' }}" data-banner>
+  {{ icon(icons[category], 'banner__icon') }}<div class="banner__body"><p class="banner__text">{{ text }}</p>{% if details %}<details class="banner__details"><summary>{{ icon('chevron-right') }}Подробнее</summary>{% if details is string %}<p>{{ details }}</p>{% else %}<ul>{% for detail in details %}<li>{{ detail }}</li>{% endfor %}</ul>{% endif %}</details>{% endif %}</div>
+  {% if closable %}<button class="icon-btn banner__close" type="button" aria-label="Закрыть уведомление" data-banner-close>{{ icon('x') }}</button>{% endif %}
+</div>
+{%- endmacro %}
+
+{# Пустой экран объясняет следующий шаг; действие задаёт вызывающий шаблон. #}
+{% macro empty_state(title, text=None, icon='inbox') -%}
+<div class="empty-state">{{ _icon(icon, 'empty-state__icon') }}<h2>{{ title }}</h2>{% if text %}<p>{{ text }}</p>{% endif %}{% if caller is defined %}<div class="empty-state__actions">{{ caller() }}</div>{% endif %}</div>
+{%- endmacro %}
+
+{# Нативный dialog удерживает фокус и обрабатывает Escape. #}
+{% macro modal(id, title) -%}
+<dialog class="modal" id="{{ id }}" aria-labelledby="{{ id }}-title"><div class="modal__head"><h2 id="{{ id }}-title">{{ title }}</h2><button class="icon-btn" type="button" aria-label="Закрыть диалог" data-dialog-close>{{ icon('x') }}</button></div>{{ caller() }}</dialog>
+{%- endmacro %}
+
+{# Один диалог обслуживает все формы, сохраняя исходный submitter. #}
+{% macro confirm_dialog() -%}
+<dialog class="modal modal--confirm" id="ui-confirm" aria-labelledby="ui-confirm-title" aria-describedby="ui-confirm-text" data-confirm-dialog>
+  <h2 id="ui-confirm-title">Подтверждение</h2><p id="ui-confirm-text" data-confirm-text></p>
+  <div class="settings-actions">{{ btn('Отмена', 'secondary', type='button', attrs={'data-confirm-cancel': '', 'autofocus': true}) }}{{ btn('Продолжить', type='button', attrs={'data-confirm-accept': ''}) }}</div>
+</dialog>
+{%- endmacro %}
+
+{# Завершённый шаг отмечен SVG, текущий доступен скринридеру. #}
+{% macro auth_steps(current, total, labels) -%}
+{% set labels = labels or [] %}
+<ol class="auth__steps" aria-label="Этапы входа">{% for step in range(1, total + 1) %}<li class="auth__step{{ ' auth__step--done' if step < current }}{{ ' auth__step--current' if step == current }}"{% if step == current %} aria-current="step"{% endif %}><span class="auth__step-number">{% if step < current %}{{ icon('check') }}{% else %}{{ step }}{% endif %}</span><span class="visually-hidden">{{ labels[step - 1] if step <= labels|length else step }}</span>{% if not loop.last %}<span class="auth__step-line" aria-hidden="true"></span>{% endif %}</li>{% endfor %}</ol>
+{%- endmacro %}

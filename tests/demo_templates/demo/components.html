@@ -1,0 +1,42 @@
+{% extends "venom_ui/app.html" %}
+{% block title %}Компоненты — venom_shadows{% endblock %}
+{% block content %}
+<div class="page">
+  {% call ui.page_header('Компоненты', count=24, lead='Общие элементы интерфейса всех сервисов.') %}{{ ui.btn('Создать', type='button', icon='plus') }}{% endcall %}
+  <div class="settings-stack">
+    <section class="panel"><h2>Кнопки</h2><div class="settings-actions">
+      {% for variant, label in [('primary', 'Сохранить'), ('secondary', 'Проверить'), ('danger', 'Удалить')] %}{{ ui.btn(label, variant, type='button') }}{{ ui.btn(label, variant, type='button', small=true) }}{% endfor %}
+      {{ ui.btn('Недоступно', type='button', attrs={'disabled': true}) }}
+      {{ ui.btn('Выполняется…', type='button', attrs={'aria-busy': 'true', 'disabled': true}) }}
+      <a class="btn-link" href="/demo/settings">Настройки</a>
+      <button class="icon-btn" type="button" aria-label="Обновить">{{ ui.icon('refresh') }}</button>
+      {{ ui.btn('Открыть диалог', 'secondary', type='button', attrs={'data-dialog-open': 'demo-modal'}) }}
+    </div></section>
+    <section class="panel"><h2>Статусы</h2><div class="settings-actions">
+      {% for tone, label in [('success', 'Готово'), ('danger', 'Отклонено'), ('warning', 'Устарело'), ('partial', 'Частично'), ('accent', 'В очереди'), ('neutral', 'Не проверялось')] %}{{ ui.status_pill(tone, label, 'check' if tone == 'success' else none) }}{% endfor %}
+      {{ ui.state_marker(true) }}{{ ui.state_marker(false) }}
+    </div></section>
+    <section class="panel"><h2>Уведомления</h2>
+      <div class="banner-stack">
+      {{ ui.banner('success', 'Настройки сохранены.') }}
+      {{ ui.banner('info', 'Проверка выполняется в фоне.') }}
+      {{ ui.banner('warning', 'Часть данных устарела.', ['Последняя проверка: вчера', 'Обновите данные перед экспортом.']) }}
+      {{ ui.banner('error', 'Не удалось подключиться.', 'Проверьте адрес сервера и повторите попытку.') }}
+      </div>
+    </section>
+    <section class="panel"><h2>Поля</h2><form method="get" action="/demo/components">
+      <div class="field-grid">
+        {{ ui.field('name', 'Название', placeholder='Новый бренд', required=true, hint='Название видно в списке.') }}
+        {{ ui.field('email', 'Email', 'invalid', type='email', error='Укажите полный адрес.') }}
+        {{ ui.select('engine', 'Поисковик', [('yandex', 'Яндекс'), ('google', 'Google')], 'google') }}
+        {{ ui.textarea('notes', 'Комментарий', hint='Необязательное поле.') }}
+        {{ ui.checkbox('enabled', 'Отправлять уведомления', true, 'Можно отключить в любое время.') }}
+        {{ ui.file_picker('files', 'demo-files', 'Документы', multiple=true, accept='.csv,.txt') }}
+      </div>
+      {{ ui.settings_actions() }}
+    </form></section>
+    <section class="panel">{% call ui.empty_state('Пока нет брендов', 'Добавьте первый бренд, чтобы начать проверку.') %}{{ ui.btn('Добавить бренд', type='button', icon='plus') }}{% endcall %}</section>
+  </div>
+</div>
+{% call ui.modal('demo-modal', 'Пример диалога') %}<p>Содержимое задаёт страница сервиса.</p>{{ ui.btn('Готово', type='button', attrs={'data-dialog-close': ''}) }}{% endcall %}
+{% endblock %}

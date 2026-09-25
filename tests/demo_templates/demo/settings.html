@@ -1,0 +1,39 @@
+{% extends "venom_ui/app.html" %}
+{% set nav_active = 'settings' %}
+{% block title %}Настройки — venom_shadows{% endblock %}
+{% block content %}
+<div class="page">
+  {{ ui.page_header('Настройки', lead='Подключения и ключи доступа. Каждая секция сохраняется отдельно.') }}
+  <div class="settings-stack">
+    {% call ui.settings_section('email', 'Email', true, hint='Почта для уведомлений о результатах проверок.', action='/settings', section='email') %}
+      <div class="field-grid">
+        {{ ui.field('smtp_host', 'SMTP-сервер', 'smtp.example.com') }}
+        {{ ui.field('smtp_port', 'Порт', '587', type='number') }}
+        {{ ui.field('smtp_user', 'Логин', 'notify@example.com') }}
+        {{ ui.secret_field('smtp_password', 'Пароль SMTP', true, clearable=true) }}
+        {{ ui.field('email_to', 'Получатель', 'admin@example.com', type='email') }}
+        {{ ui.select('smtp_security', 'Защита соединения', [('starttls', 'STARTTLS'), ('ssl', 'SSL/TLS')], 'starttls') }}
+      </div>
+      {{ ui.settings_actions(test_label='Сохранить и отправить тестовое письмо', test_action='/settings/test-email') }}
+    {% endcall %}
+    {% call ui.settings_section('telegram', 'Telegram', true, hint='Токен бота и идентификатор чата доступны для проверки и копирования.', action='/settings', section='telegram') %}
+      <div class="field-grid">
+        {{ ui.field('telegram_token', 'Токен бота', '123456789:DEMO_visible_telegram_token') }}
+        {{ ui.field('telegram_chat_id', 'Chat ID', '-1001234567890') }}
+      </div>
+      {{ ui.settings_actions(test_label='Отправить тестовое сообщение', test_action='/settings/test-telegram') }}
+    {% endcall %}
+    {% call ui.settings_section('brand', 'API-ключ Brand', false, hint='Ключ сервиса Brand для получения списка брендов.', action='/settings', section='brand') %}
+      <div class="field-grid">{{ ui.field('brand_api_key', 'API-ключ', 'brand_demo_key_always_visible') }}{{ ui.field('brand_url', 'Адрес сервиса', 'https://brand.example.com', type='url') }}</div>
+      {{ ui.settings_actions() }}
+    {% endcall %}
+    {% call ui.settings_section('site', 'API-ключ сайта', true, marker_on_text='Ключ выпущен', hint='При перевыпуске старый ключ сразу перестанет работать.', action='/settings', section='site') %}
+      {{ ui.api_key_block('site_demo_0123456789abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789') }}
+      <div class="settings-actions">
+        {{ ui.btn('Перевыпустить', 'secondary', icon='refresh', attrs={'name': 'operation', 'value': 'regenerate', 'data-confirm': 'Перевыпустить API-ключ? Старый ключ перестанет работать.', 'data-confirm-ok': 'Перевыпустить', 'data-busy-label': 'Выпускается…'}) }}
+        {{ ui.btn('Отозвать', 'danger', icon='trash', attrs={'name': 'operation', 'value': 'revoke', 'data-confirm': 'Отозвать API-ключ сайта?', 'data-confirm-danger': '', 'data-confirm-ok': 'Отозвать', 'data-busy-label': 'Отзывается…'}) }}
+      </div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

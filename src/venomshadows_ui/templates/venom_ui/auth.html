@@ -1,0 +1,11 @@
+{% extends "venom_ui/base.html" %}
+{% import "venom_ui/macros.html" as ui %}
+{% block body %}
+<main class="auth" id="main">
+  <div class="panel auth__card">
+    <div class="auth__brand">{{ ui.logo('auth') }}</div>
+    {{ ui.auth_steps(auth_step|default(1), auth_total|default(2), auth_labels|default(['Вход', 'Подтверждение'])) }}
+    {% block auth_content %}{% endblock %}
+  </div>
+</main>
+{% endblock %}
