@@ -6,6 +6,76 @@
   const checkbox = row => row.querySelector('[data-row-select]');
   const initialized = new WeakSet();
 
+  // Старые tbody поддерживаются, новые контейнеры явно отмечают тело списка.
+  const bodies = target => target.matches('[data-list-body]') ? [target] : all('[data-list-body], tbody', target);
+  const rowsOf = target => bodies(target).flatMap(body => Array.from(body.children).filter(row => row.matches('[data-row]')));
+  const sortGroup = target => linked('[data-sort-control]', target.id)[0]
+    || (target.previousElementSibling?.matches('[data-sort-control]:not([data-target])') ? target.previousElementSibling : null);
+  const focusTarget = target => target.closest('.table-scroll') || target;
+  const detailOpen = new WeakMap();
+  const detailsOf = row => {
+    const details = [];
+    for (let next = row.nextElementSibling; next?.matches('[data-row-detail]'); next = next.nextElementSibling) details.push(next);
+    return details;
+  };
+  const detailTargets = (button, details) => {
+    const controls = button.getAttribute('aria-controls');
+    const ids = controls === null ? null : controls.trim().split(/\s+/).filter(Boolean);
+    return ids === null ? details : details.filter(detail => detail.id && ids.includes(detail.id));
+  };
+  function syncDetails(row, details) {
+    details.forEach(detail => { detail.hidden = row.hidden || !detailOpen.get(detail); });
+    all('[data-detail-toggle]', row).forEach(button => {
+      const targets = detailTargets(button, details);
+      if (targets.length) button.setAttribute('aria-expanded', String(targets.every(detail => detailOpen.get(detail))));
+    });
+  }
+  // Делегирование работает и для серверной страницы, и для добавленных строк.
+  function initDetails(table) {
+    const remember = row => {
+      const details = detailsOf(row);
+      details.forEach(detail => {
+        if (!detailOpen.has(detail)) detailOpen.set(detail, !detail.hidden);
+      });
+      return details;
+    };
+    const sync = () => rowsOf(table).forEach(row => syncDetails(row, remember(row)));
+    table.addEventListener('click', event => {
+      const button = event.target.closest('[data-detail-toggle]');
+      const row = button?.closest('[data-row]');
+      if (!row || row.closest('[data-list]') !== table) return;
+      const details = remember(row);
+      const targets = detailTargets(button, details);
+      if (!targets.length) return;
+      const open = !targets.every(detail => detailOpen.get(detail));
+      targets.forEach(detail => detailOpen.set(detail, open));
+      syncDetails(row, details);
+    });
+    table.addEventListener('venomlist:refresh', sync);
+    sync();
+  }
+  // Удаляем всю группу до refresh, иначе подробности перейдут к соседу.
+  function removeRows(rows) {
+    const tables = new Set();
+    Array.from(rows).forEach(row => {
+      if (!row.matches('[data-row]')) return;
+      const table = row.closest('[data-list]');
+      if (table) tables.add(table);
+      detailsOf(row).forEach(detail => detail.remove());
+      row.remove();
+    });
+    tables.forEach(table => table.dispatchEvent(new Event('venomlist:refresh')));
+  }
+  function collectDetails(state) {
+    state.details = new Map(state.rows.map(row => [row, detailsOf(row)]));
+    state.details.forEach(details => details.forEach(detail => {
+      if (!detailOpen.has(detail)) detailOpen.set(detail, !detail.hidden);
+    }));
+  }
+  function showDetails(state, row) {
+    syncDetails(row, state.details.get(row) || []);
+  }
+
   function controls(form) {
     return form ? all('[data-list-search], [data-list-filter], [data-chip-value]', form) : [];
   }
@@ -134,7 +204,7 @@
   }
 
   function updateSelection(state) {
-    state.rows = all('tbody > [data-row]', state.table);
+    state.rows = rowsOf(state.table);
     const visible = state.rows.filter(row => !row.hidden && checkbox(row) && !checkbox(row).disabled);
     const selected = state.rows.filter(row => checkbox(row)?.checked);
     state.rows.forEach(row => row.classList.toggle('is-selected', Boolean(checkbox(row)?.checked)));
@@ -146,7 +216,7 @@
     }
     state.bars.forEach(bar => {
       if (!selected.length && bar.contains(document.activeElement)) {
-        (state.selectAll && !state.selectAll.disabled ? state.selectAll : state.table.closest('.table-scroll'))?.focus();
+        (state.selectAll && !state.selectAll.disabled ? state.selectAll : focusTarget(state.table))?.focus();
       }
       bar.hidden = selected.length === 0;
       const count = bar.querySelector('[data-selection-count]');
@@ -166,6 +236,7 @@
     const firstRevealed = state.matching.find(row => row.hidden && visible.has(row));
     state.rows.forEach(row => {
       row.hidden = !visible.has(row);
+      showDetails(state, row);
       if (!row.hidden) row.removeAttribute('data-lazy-pending');
       // Выбор снимается только фильтром, а не границей ленивого показа.
       if (!matching.has(row) && checkbox(row)) checkbox(row).checked = false;
@@ -174,7 +245,7 @@
       const hidden = state.matching.length <= state.limit;
       if (hidden && sentinel.contains(document.activeElement)) {
         const box = firstRevealed && checkbox(firstRevealed);
-        (box && !box.disabled ? box : state.table.closest('.table-scroll'))?.focus();
+        (box && !box.disabled ? box : focusTarget(state.table))?.focus();
       }
       sentinel.hidden = hidden;
     });
@@ -200,11 +271,21 @@
       const comparison = compareValues(a.getAttribute('data-sort-' + state.sort) || '', b.getAttribute('data-sort-' + state.sort) || '', active.dataset.sortType, state.direction);
       return comparison || state.originalOrder.get(a) - state.originalOrder.get(b);
     });
-    state.rows.forEach(row => row.parentElement.appendChild(row));
+    state.rows.forEach(row => {
+      const body = row.parentElement;
+      body.appendChild(row);
+      (state.details.get(row) || []).forEach(detail => body.appendChild(detail));
+    });
     all('[data-empty-row]', state.table).forEach(row => row.parentElement.appendChild(row));
     state.headers.forEach(header => {
       const dir = header === active ? state.direction : 'none';
-      header.closest('th').setAttribute('aria-sort', dir === 'none' ? 'none' : (dir === 'asc' ? 'ascending' : 'descending'));
+      const th = header.closest('th');
+      if (th) th.setAttribute('aria-sort', dir === 'none' ? 'none' : (dir === 'asc' ? 'ascending' : 'descending'));
+      else {
+        header.setAttribute('aria-pressed', String(header === active));
+        const direction = header.querySelector('[data-sort-direction]');
+        if (direction) direction.textContent = dir === 'none' ? '' : (dir === 'asc' ? ', по возрастанию' : ', по убыванию');
+      }
       all('[data-sort-icon]', header).forEach(icon => { icon.hidden = icon.dataset.sortIcon !== dir; });
     });
   }
@@ -232,19 +313,22 @@
   }
 
   function initSelection(table) {
-    if (!table.querySelector('[data-select-all], [data-row-select]')) return null;
+    const group = sortGroup(table);
+    if (!table.querySelector('[data-row-select]') && !table.querySelector('[data-select-all]') && !group?.querySelector('[data-select-all]')) return null;
     const state = {
       table, rows: [], bars: linked('[data-bulk-bar]', table.id),
-      selectAll: table.querySelector('[data-select-all]'), lastSelection: ''
+      selectAll: table.querySelector('[data-select-all]') || group?.querySelector('[data-select-all]'), lastSelection: ''
     };
-    table.addEventListener('change', event => {
+    const changed = event => {
       if (!event.target.matches('[data-select-all], [data-row-select]')) return;
       if (event.target === state.selectAll) {
         state.rows.filter(row => !row.hidden && checkbox(row) && !checkbox(row).disabled)
           .forEach(row => { checkbox(row).checked = state.selectAll.checked; });
       }
       updateSelection(state);
-    });
+    };
+    table.addEventListener('change', changed);
+    group?.addEventListener('change', changed);
     state.bars.forEach(bar => bar.querySelector('[data-clear-selection]')?.addEventListener('click', () => {
       state.rows.forEach(row => { if (checkbox(row)) checkbox(row).checked = false; });
       updateSelection(state);
@@ -290,7 +374,8 @@
 
   function bindClient(state) {
     state.table.addEventListener('venomlist:refresh', () => {
-      state.rows = all('tbody > [data-row]', state.table);
+      state.rows = rowsOf(state.table);
+      collectDetails(state);
       fillLabels(state.table);
       state.rows.forEach(row => {
         if (!state.originalOrder.has(row)) state.originalOrder.set(row, state.nextOrder++);
@@ -309,15 +394,17 @@
   }
 
   function initClient(table, form, selection) {
-    const rows = all('tbody > [data-row]', table);
+    const rows = rowsOf(table);
     const sentinels = linked('[data-lazy-sentinel]', table.id);
+    const group = sortGroup(table);
     const state = {
       table, form, rows, sentinels, selection, fields: controls(form),
-      headers: all('[data-sort-key]', table), originalOrder: new WeakMap(rows.map((row, index) => [row, index])), nextOrder: rows.length,
+      headers: all('[data-sort-key]', table).concat(group ? all('[data-sort-key]', group) : []), originalOrder: new WeakMap(rows.map((row, index) => [row, index])), nextOrder: rows.length,
       lazy: sentinels.length > 0 && 'IntersectionObserver' in window,
-      sort: table.dataset.sort || '', direction: table.dataset.dir === 'desc' ? 'desc' : 'asc',
+      sort: table.dataset.sort || group?.dataset.sort || '', direction: (table.dataset.dir || group?.dataset.dir) === 'desc' ? 'desc' : 'asc',
       matching: [], limit: Infinity, revealFrame: null
     };
+    collectDetails(state);
     restore(state);
     applySort(state);
     bindClient(state);
@@ -333,12 +420,13 @@
       initialized.add(form);
       initServer(form);
     });
-    const tables = all('[data-list-table]', root);
-    if (root.matches?.('[data-list-table]')) tables.unshift(root);
+    const tables = all('[data-list]', root);
+    if (root.matches?.('[data-list]')) tables.unshift(root);
     tables.forEach(table => {
       if (initialized.has(table)) return;
       initialized.add(table);
       fillLabels(table);
+      initDetails(table);
       const selection = initSelection(table);
       if (table.dataset.mode === 'server') {
         table.addEventListener('venomlist:refresh', () => fillLabels(table));
@@ -348,7 +436,7 @@
       initClient(table, form, selection);
     });
   }
-  window.VenomList = { init };
+  window.VenomList = { init, removeRows };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => init());
   else init();
 }());

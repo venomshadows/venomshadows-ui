@@ -224,7 +224,8 @@
   color: var(--color-text-primary);
 }
 .data-table th[aria-sort="ascending"] .th-sort,
-.data-table th[aria-sort="descending"] .th-sort {
+.data-table th[aria-sort="descending"] .th-sort,
+.th-sort[aria-pressed="true"] {
   color: var(--color-accent-text);
 }
 .th-sort [data-sort-icon] {
@@ -239,14 +240,8 @@
   width: var(--tap);
   padding: 0;
 }
-.data-table__select label {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-width: var(--tap);
-  min-height: var(--tap);
-}
-.data-table input[type="checkbox"] {
+.data-table input[type="checkbox"],
+.list-select input[type="checkbox"] {
   width: 1.05rem;
   height: 1.05rem;
   accent-color: var(--color-accent);
@@ -344,7 +339,7 @@
     order: -2;
     position: sticky;
     left: 0;
-    z-index: 2;
+    z-index: 3;
     background: var(--color-bg-table-head);
   }
   .data-table--stacked thead th[aria-sort="ascending"],
@@ -353,7 +348,7 @@
     /* При клиентской сортировке прежний scrollLeft не прячет активную колонку. */
     position: sticky;
     left: calc(var(--tap) + .5rem);
-    z-index: 1;
+    z-index: 2;
     background: var(--color-bg-table-head);
   }
   /* Внутреннее кольцо фокуса не обрезается областью прокрутки. */
@@ -424,4 +419,130 @@
   left: .75rem;
   right: auto;
   max-width: calc(100% - 1.5rem);
+}
+
+/* Карточки используют те же состояния, что и строки таблицы. */
+.card-list {
+  /* Ритм карточек настраивается локально, не меняя панели и таблицы. */
+  --list-gap: .75rem;
+  /* Внутреннее поле отделяет содержимое карточки от рамки. */
+  --list-card-pad: 1rem;
+  /* Единая миниатюра сохраняет выравнивание текста между карточками. */
+  --list-thumbnail-size: 3rem;
+  display: grid;
+  gap: var(--list-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.card-list > [data-row] {
+  min-width: 0;
+  padding: var(--list-card-pad);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-sunken-subtle);
+  overflow-wrap: anywhere;
+}
+.card-list > [data-row]:hover {
+  background: var(--color-bg-hover);
+}
+.card-list > .is-selected,
+.card-list > .is-selected:hover {
+  background: var(--color-accent-subtle);
+}
+.data-table__select label,
+.list-select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap);
+  min-height: var(--tap);
+}
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  max-width: 100%;
+  overflow-x: auto;
+  margin-bottom: .75rem;
+  padding: 0 .5rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-table-head);
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+.sort-control > * {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.sort-control .th-sort {
+  min-height: var(--tap);
+  padding: 0 .5rem;
+}
+.card-list > [data-empty-row] {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+.card-list__content {
+  display: flex;
+  align-items: center;
+  gap: var(--list-gap);
+}
+.card-list__thumbnail {
+  display: grid;
+  place-items: center;
+  flex: 0 0 var(--list-thumbnail-size);
+  height: var(--list-thumbnail-size);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-text);
+}
+.card-list__text {
+  flex: 1;
+  min-width: 0;
+}
+.data-table__detail td {
+  background: var(--color-bg-sunken-subtle);
+}
+[data-detail-toggle] {
+  position: relative;
+  min-height: 0;
+  padding: 0 .5rem;
+  font: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+}
+/* Невидимая зона 44px не увеличивает высоту строки таблицы. */
+[data-detail-toggle]::before {
+  content: "";
+  position: absolute;
+  inset: calc((100% - var(--tap)) / 2) 0;
+  min-height: var(--tap);
+}
+@media (max-width: 699px) {
+  /* Подробности не наследуют пары подпись/значение карточки владельца. */
+  .data-table--stacked tbody .data-table__detail {
+    margin-top: 0;
+    width: 100%;
+    border-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+  .data-table--stacked tbody tr[data-row]:has(+ .data-table__detail:not([hidden])),
+  .data-table--stacked tbody tr.data-table__detail:has(+ .data-table__detail:not([hidden])) {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .data-table--stacked tr.data-table__detail td {
+    display: block;
+    width: 100%;
+    text-align: start;
+  }
+  .data-table--stacked .data-table__detail td::before {
+    display: none;
+  }
 }

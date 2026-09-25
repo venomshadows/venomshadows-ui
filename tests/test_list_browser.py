@@ -250,7 +250,7 @@ def test_lazy_keeps_revealing_while_sentinel_intersects(browser, live_url, fixed
     page.add_init_script('''document.addEventListener('DOMContentLoaded', () => {
       // Tiny rows keep the sentinel intersecting across several batches.
       const style = document.createElement('style');
-      style.textContent = '.data-table tbody tr {height:1px} .data-table tbody td {height:1px;padding:0;font-size:0;border:0} .data-table tbody label {min-height:0;height:1px} .data-table tbody input {height:1px} .data-table tbody .pill {height:1px;min-height:0;padding:0;border:0;font-size:0;line-height:0}';
+      style.textContent = '.data-table tbody [data-detail-toggle] {height:1px;min-height:0;padding:0;border:0;font-size:0} .data-table tbody tr {height:1px} .data-table tbody td {height:1px;padding:0;font-size:0;border:0} .data-table tbody label {min-height:0;height:1px} .data-table tbody input {height:1px} .data-table tbody .pill {height:1px;min-height:0;padding:0;border:0;font-size:0;line-height:0}';
       document.head.appendChild(style);
     });''')
     if not fixed:
@@ -546,7 +546,7 @@ def test_original_order_uses_weak_keys_and_monotonic_indices(browser, live_url):
     page.add_init_script('''window.NativeWeakMap = WeakMap;
       window.orderValues = [];
       window.WeakMap = class extends NativeWeakMap {
-        set(key, value) { if (key instanceof HTMLTableRowElement) orderValues.push(value); return super.set(key, value); }
+        set(key, value) { if (key instanceof HTMLTableRowElement && key.matches('[data-row]')) orderValues.push(value); return super.set(key, value); }
       };''')
     page.goto(live_url + '/demo/list')
     page.evaluate('''() => {

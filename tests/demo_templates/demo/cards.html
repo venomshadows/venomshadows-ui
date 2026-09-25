@@ -1,0 +1,37 @@
+{% extends "venom_ui/app.html" %}
+{% import 'venom_ui/list.html' as list %}
+{% set statuses = [('', 'Все'), ('new', 'Новая', 'accent'), ('used', 'Использована', 'success')] %}
+{% set columns = [{'key': 'date', 'label': 'Дата', 'type': 'date'}, {'key': 'title', 'label': 'Название'}] %}
+{% block title %}Версии шаблонов — venom_shadows{% endblock %}
+{% block content %}
+<div class="page">
+{{ ui.page_header('Версии шаблонов', count=40, lead='Поиск, сортировка и выбор карточек') }}
+{% call list.filter_bar('versions', label='Версии шаблонов') %}
+{{ list.search() }}
+{{ list.chips('status', 'Статус', statuses) }}
+{% endcall %}
+<form method="post" action="/demo/list-selection">
+{{ venom_ui.csrf() }}
+{{ list.sort_control(columns, sort='date', dir='desc', selectable=true) }}
+{% call list.card_list('versions', label='Версии шаблонов') %}
+{% for i in range(1, 41) %}
+{% set title = 'Шаблон ' ~ i %}
+{% set date = '2026-%02d-%02d'|format(1 + i // 28, 1 + i % 28) %}
+{% set status = statuses[1 + i % 2] %}
+<li {{ list.row_attrs(title, {'status': status[0]}, {'title': title, 'date': date}, id=i) }}>
+  <div class="card-list__content">
+    <div class="card-list__thumbnail" aria-hidden="true">{{ ui.icon('inbox') }}</div>
+    <div class="card-list__text"><h2>{{ title }}</h2><p><time datetime="{{ date }}">{{ date }}</time></p>{{ ui.status_pill(status[2], status[1]) }}</div>
+    {{ list.select_box(i, title, name='ids') }}
+  </div>
+</li>
+{% endfor %}
+<li data-empty-row hidden>Ничего не найдено</li>
+{% endcall %}
+{{ list.lazy_sentinel('versions') }}
+{% call list.bulk_bar('versions', label='Версии шаблонов') %}
+{{ ui.btn('Отправить выбранные') }}
+{% endcall %}
+</form>
+</div>
+{% endblock %}

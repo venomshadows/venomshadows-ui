@@ -86,18 +86,18 @@
 {# Ссылки сохраняют повторяющиеся аргументы; новая сортировка сбрасывает страницу.
    width: число в пикселях или строка цифр ASCII с необязательным %; прочее опускается.
    class: строка дополнительных классов th для ширины в CSS сервиса при строгой CSP. #}
-{% macro sort_th(column, sort, dir, mode) -%}
+{% macro sort_th(column, sort, dir, mode, header=True) -%}
 {%- set active = sort == column.key %}
 {%- set direction = dir if active else 'none' %}
 {%- set width = column.width|default(none) %}
 {%- set digits = width[:-1] if width is string and width.endswith('%') else width %}
 {%- set valid_width = (width is number and width is not boolean) or
     (digits is string and digits.isascii() and digits.isdecimal()) %}
-<th scope="col" class="data-table__{{ column.align|default('start') }}{% if column.class is string and column.class %} {{ column.class }}{% endif %}"
+{% if header %}<th scope="col" class="data-table__{{ column.align|default('start') }}{% if column.class is string and column.class %} {{ column.class }}{% endif %}"
     {%- if valid_width %} width="{{ width }}"{% endif %}
     {%- if column.sortable|default(true) %}
       aria-sort="{{ 'ascending' if direction == 'asc' else ('descending' if direction == 'desc' else 'none') }}"
-    {%- endif %}>
+    {%- endif %}>{% endif %}
   {%- if column.sortable|default(true) %}
     {%- if mode == 'server' %}
       {%- set query = [] %}
@@ -107,9 +107,10 @@
       <a class="th-sort" href="{{ request.path }}?{{ query|urlencode }}">
     {%- else %}
       <button type="button" class="th-sort" data-sort-key="{{ column.key }}"
-              data-sort-type="{{ column.type|default('text') }}">
+              data-sort-type="{{ column.type|default('text') }}"{% if not header %} aria-pressed="{{ 'true' if active else 'false' }}"{% endif %}>
     {%- endif %}
       {{- column.label }}
+      {% if not header %}<span class="visually-hidden" data-sort-direction>{{ ', по возрастанию' if direction == 'asc' else (', по убыванию' if direction == 'desc' else '') }}</span>{% endif %}
       <span data-sort-icon="none"{% if direction != 'none' %} hidden{% endif %}>
         {{- venom_icon('chevrons-up-down') -}}
       </span>
@@ -121,7 +122,7 @@
       </span>
     {%- if mode == 'server' %}</a>{% else %}</button>{% endif %}
   {%- else %}{{ column.label }}{% endif %}
-</th>
+{% if header %}</th>{% endif %}
 {%- endmacro %}
 
 {# caller отдаёт tbody; label различает области нескольких списков.
@@ -140,12 +141,12 @@
      role="region" aria-label="{{ label }}" tabindex="0">
   <table id="{{ id }}"
          class="data-table{% if compact %} data-table--compact{% endif %}{% if stacked %} data-table--stacked{% endif %}"
-         data-list-table data-mode="{{ mode }}" data-sort="{{ sort or '' }}" data-dir="{{ dir }}">
+         data-list data-mode="{{ mode }}" data-sort="{{ sort or '' }}" data-dir="{{ dir }}">
     <thead>
       <tr>
         {%- if selectable %}
           <th scope="col" class="data-table__select">
-            <label><input type="checkbox" data-select-all aria-label="Выбрать все видимые строки"></label>
+            <label class="list-select"><input type="checkbox" data-select-all aria-label="Выбрать все видимые строки"></label>
           </th>
         {%- endif %}
         {%- for column in columns %}
@@ -192,9 +193,36 @@ data-row{% if pending %} data-lazy-pending{% endif %} data-search="{{ (search if
 {# Общая ячейка выбора сохраняет область нажатия 44px и доступное имя. #}
 {% macro select_cell(id, label, name=None) -%}
 <td class="data-table__select">
-  <label>
-    <input type="checkbox" data-row-select{% if name %} name="{{ name }}"{% endif %} value="{{ id }}" aria-label="Выбрать {{ label }}">
-  </label>
+  {{ select_box(id, label, name) }}
 </td>
 {%- endmacro %}
 
+
+{# Общий флажок сохраняет одинаковые поля формы в таблице и карточках. #}
+{% macro select_box(id, label, name=None) -%}
+<label class="list-select">
+  <input type="checkbox" data-row-select{% if name %} name="{{ name }}"{% endif %} value="{{ id }}" aria-label="Выбрать {{ label }}">
+</label>
+{%- endmacro %}
+
+{# Детали не получают data-row: счётчики учитывают только владельца. #}
+{% macro detail_row(colspan, id=None, hidden=True) -%}
+<tr class="data-table__detail" data-row-detail{% if id is not none %} id="{{ id }}"{% endif %}{% if hidden %} hidden{% endif %}>
+  <td colspan="{{ colspan }}">{{ caller() }}</td>
+</tr>
+{%- endmacro %}
+
+{# Явное тело списка позволяет карточкам использовать общую фильтрацию и выбор. #}
+{% macro card_list(id, label=None) -%}
+<ul id="{{ id }}" class="card-list" data-list data-list-body tabindex="-1"{% if label %} aria-label="{{ label }}"{% endif %}>
+  {{ caller() }}
+</ul>
+{%- endmacro %}
+
+{# Группа сортирует соседний список: aria-pressed не требует табличной семантики. #}
+{% macro sort_control(columns, sort=None, dir='asc', target=None, selectable=False) -%}
+<div class="sort-control" role="group" aria-label="Сортировка" data-sort-control data-sort="{{ sort or '' }}" data-dir="{{ dir }}"{% if target %} data-target="{{ target }}"{% endif %}>
+  {% if selectable %}<label class="list-select"><input type="checkbox" data-select-all aria-label="Выбрать все видимые строки"></label>{% endif %}
+  {% for column in columns if column.sortable|default(true) %}{{ sort_th(column, sort, dir, 'client', header=false) }}{% endfor %}
+</div>
+{%- endmacro %}

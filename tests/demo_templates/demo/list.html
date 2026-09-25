@@ -18,14 +18,20 @@
 <form method="post" action="/demo/list-selection">
 {{ venom_ui.csrf() }}
 {% call(select_name) list.data_table('domains', columns, sort=sort|default(None), dir=direction|default('asc'), mode=mode, stacked=true, selectable=true, select_name='ids', fixed=not server, label='Домены') %}
-<tbody>
+<tbody data-list-body>
 {% for item in (rows if server else range(1, 181)) %}
 {% if server %}{% set row = item %}{% else %}
 {% set row = {'id': item, 'domain': 'domain-' ~ item ~ '.example', 'status': statuses[1 + item % 4][0], 'brand': brands[1 + item % 3][0], 'date': '2026-%02d-%02d'|format(1 + (item // 28) % 12, 1 + item % 28), 'number': item * 7 % 101} %}
 {% endif %}
 <tr {{ list.row_attrs(row.domain ~ ' ' ~ row.brand, {'status': row.status, 'brand': row.brand}, {'domain': row.domain, 'status': row.status, 'date': row.date, 'number': row.number}, row.id, pending=not server and loop.index > 50) }}>
 {{ list.select_cell(row.id, row.domain, name=select_name) }}
-<td data-label="Домен">{{ row.domain }}</td><td data-label="Статус">{% for option in statuses if option[0] == row.status %}{{ ui.status_pill(option[2], option[1]) }}{% endfor %}</td><td data-label="Дата">{{ row.date }}</td><td data-label="Число" class="data-table__end">{{ row.number }}</td><td data-label="Действия"><a href="/demo/components">Открыть</a></td></tr>
+<td data-label="Домен">{{ row.domain }}</td><td data-label="Статус">{% for option in statuses if option[0] == row.status %}{{ ui.status_pill(option[2], option[1]) }}{% endfor %}</td><td data-label="Дата">{{ row.date }}</td><td data-label="Число" class="data-table__end">{{ row.number }}</td><td data-label="Действия">{% if row.id % 3 == 0 %}<button type="button" class="btn btn--secondary" data-detail-toggle aria-expanded="false" aria-controls="detail-{{ row.id }}">Подробности</button>{% else %}<a href="/demo/components">Открыть</a>{% endif %}</td></tr>
+{% if row.id % 3 == 0 %}
+{% call list.detail_row(6, id='detail-' ~ row.id) %}
+{# Демо редактирует текст локально: пустое name не добавляет его к форме выбора ids. #}
+{{ ui.textarea('', 'Текст для ' ~ row.domain, value='Готовый текст для ' ~ row.domain ~ '. Здесь можно просмотреть и отредактировать результат.', rows=3, attrs={'id': 'text-' ~ row.id}) }}
+{% endcall %}
+{% endif %}
 {% endfor %}
 {{ list.empty_row(6, hidden=not (server and not rows)) }}
 </tbody>

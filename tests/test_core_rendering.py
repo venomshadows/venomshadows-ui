@@ -84,6 +84,45 @@ def macro(render, expression, **context):
     return render('{% import "venom_ui/macros.html" as ui %}{{ ' + expression + ' }}', **context)
 
 
+@pytest.mark.parametrize('expression,tag', [
+    ("ui.field('f', 'Label',", 'input'),
+    ("ui.textarea('f', 'Label',", 'textarea'),
+    ("ui.select('f', 'Label', [('', 'Choose'), ('a', 'A')],", 'select'),
+    ("ui.checkbox('f', 'Label',", 'input'),
+    ("ui.secret_field('f', 'Label', true,", 'input'),
+    ("ui.file_picker('f', 'f', 'Label',", 'input'),
+])
+def test_field_parameter_parity(render, expression, tag):
+    html = macro(render, expression + "required=true, hint='Hint', error='Error', attrs={'id': 'custom', 'data-extra': '<value>'})")
+    dom = tree(html)
+    control = dom.find(tag, name='f')[0]
+    assert control.attrs['id'] == 'custom'
+    assert 'required' in control.attrs
+    assert control.attrs['data-extra'] == '<value>'
+    assert control.attrs['aria-invalid'] == 'true'
+    describedby = control.attrs['aria-describedby'].split()
+    assert {'custom-hint', 'custom-error'} <= set(describedby)
+    assert dom.find(id='custom-hint')[0].text == 'Hint'
+    assert dom.find(id='custom-error')[0].text == 'Error'
+    assert all(dom.find(id=identifier) for identifier in describedby)
+    assert all(label.attrs.get('for', 'custom') == 'custom' for label in dom.find('label'))
+    overridden = tree(macro(render, expression + "error='Error', attrs={'aria-describedby': 'external', 'aria-invalid': 'false'})"))
+    assert overridden.find(tag, name='f')[0].attrs['aria-describedby'] == 'external'
+    assert overridden.find(tag, name='f')[0].attrs['aria-invalid'] == 'false'
+
+
+def test_textarea_placeholder_and_group_messages(render):
+    dom = tree(macro(render, "ui.textarea('f', 'Label', required=true, placeholder='One per line', attrs={'maxlength': 20})"))
+    control = dom.find('textarea')[0]
+    assert control.attrs['placeholder'] == 'One per line'
+    assert control.attrs['maxlength'] == '20'
+    dom = tree(macro(render, "ui.checkbox_group('g', 'Group', [('a', 'A')], hint='Hint', error='Error', attrs={'id': 'custom', 'data-extra': 'value'})"))
+    group = dom.find('fieldset')[0]
+    assert group.attrs['aria-describedby'] == 'custom-group-hint custom-group-error'
+    assert group.attrs['aria-invalid'] == 'true' and group.attrs['data-extra'] == 'value'
+    assert all(dom.find(id=identifier) for identifier in group.attrs['aria-describedby'].split())
+
+
 @pytest.mark.parametrize('page', ['settings', 'components', 'sidebar', 'login'])
 def test_demos_render(client, page):
     response = client.get(f'/demo/{page}')

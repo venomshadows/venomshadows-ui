@@ -56,11 +56,17 @@
 {%- endmacro %}
 
 {# Подсказка и ошибка связаны с полем, а не только показаны рядом. #}
-{% macro _field_shell(id, label, hint=None, error=None, attrs={}) -%}
+{% macro _field_shell(id, label, hint=None, error=None, attrs={}, required=False, placeholder=None) -%}
 {% set describedby = attrs.get('aria-describedby', (id ~ '-hint' if hint else '') ~ (' ' if hint and error else '') ~ (id ~ '-error' if error else '')) %}
+{% set control = dict(attrs) %}
+{% set _ = control.update({'id': id}) %}
+{% if describedby %}{% set _ = control.update({'aria-describedby': describedby}) %}{% endif %}
+{% if error and 'aria-invalid' not in control %}{% set _ = control.update({'aria-invalid': 'true'}) %}{% endif %}
+{% if required %}{% set _ = control.update({'required': ''}) %}{% endif %}
+{% if placeholder is not none and 'placeholder' not in control %}{% set _ = control.update({'placeholder': placeholder}) %}{% endif %}
 <div class="field">
   {% if label is not none %}<label class="field__label" for="{{ id }}">{{ label }}</label>{% endif %}
-  {{ caller({'aria-describedby': describedby} if describedby else {}) }}
+  {{ caller(control) }}
   {% if hint %}<span class="field__hint" id="{{ id }}-hint">{{ hint }}</span>{% endif %}
   {% if error %}<span class="field__error" id="{{ id }}-error">{{ error }}</span>{% endif %}
 </div>
@@ -71,8 +77,8 @@
 {% set value = value if value is not none else '' %}
 {% set placeholder = placeholder if placeholder is not none else '' %}
 {% set id = attrs.get('id', name) %}
-{% call(description) _field_shell(id, label, hint, error, attrs) %}
-<input name="{{ name }}"{% if 'id' not in attrs %} id="{{ id }}"{% endif %} type="{{ type }}" value="{{ value }}" placeholder="{{ placeholder }}"{% if required %} required{% endif %}{% if error and 'aria-invalid' not in attrs %} aria-invalid="true"{% endif %}{% if 'aria-describedby' not in attrs %}{{ description|xmlattr }}{% endif %}{{ attrs|xmlattr }}>
+{% call(control) _field_shell(id, label, hint, error, attrs, required, placeholder) %}
+<input name="{{ name }}" type="{{ type }}" value="{{ value }}"{{ control|xmlattr }}>
 {% endcall %}
 {%- endmacro %}
 
@@ -81,18 +87,25 @@
 <label class="checkbox-row"><input type="checkbox" name="{{ name }}" value="{{ value }}"{% if checked %} checked{% endif %}{{ attrs|xmlattr }}><span>{{ label }}</span></label>
 {%- endmacro %}
 
-{% macro checkbox(name, label, checked=False, hint=None) -%}
-{% call(description) _field_shell(name, None, hint) %}
-{{ _checkbox_row(name, label, checked, attrs=description) }}
+{# У флажка нет placeholder: его назначение описывает постоянная подпись. #}
+{% macro checkbox(name, label, checked=False, hint=None, error=None, required=False, attrs={}) -%}
+{% call(control) _field_shell(attrs.get('id', name), None, hint, error, attrs, required) %}
+{{ _checkbox_row(name, label, checked, attrs=control) }}
 {% endcall %}
 {%- endmacro %}
 
-{# Пресеты ширины сохраняют строгую CSP без inline-стилей. #}
-{% macro checkbox_group(name, label, options, checked=(), hint=None, columns_min='14rem', scroll=False, id=None, collapsible=False) -%}
+{# Пресеты ширины сохраняют строгую CSP без inline-стилей.
+   attrs относится к fieldset; required/placeholder неприменимы к группе:
+   нативный required на каждом флажке потребовал бы выбрать все варианты. #}
+{% macro checkbox_group(name, label, options, checked=(), hint=None, columns_min='14rem', scroll=False, id=None, collapsible=False, error=None, attrs={}) -%}
 {% set width = {'10rem': 'narrow', '14rem': 'normal', '18rem': 'wide'}.get(columns_min, 'normal') %}
 {% set checked = [checked] if checked is string or checked is number else (checked or []) %}
 {% set selected = checked|map('string')|list %}
-{% set id = id if id is not none else name %}
+{% set id = attrs.get('id', id if id is not none else name) %}
+{% set group_attrs = dict(attrs) %}
+{% set _ = group_attrs.update({'id': id}) %}
+{% if 'aria-describedby' not in group_attrs and (hint or error) %}{% set _ = group_attrs.update({'aria-describedby': (id ~ '-group-hint' if hint else '') ~ (' ' if hint and error else '') ~ (id ~ '-group-error' if error else '')}) %}{% endif %}
+{% if error and 'aria-invalid' not in group_attrs %}{% set _ = group_attrs.update({'aria-invalid': 'true'}) %}{% endif %}
 {% set options = options|list %}
 {% set count = namespace(value=0) %}
 {% for value, text in options if value|string in selected %}{% set count.value = count.value + 1 %}{% endfor %}
@@ -101,9 +114,10 @@
   <summary class="btn btn--secondary">{{ label }} · выбрано <span data-checkbox-count>{{ count.value }}</span>{{ icon('chevron-down') }}</summary>
   <div class="checkbox-menu__panel">
 {% endif %}
-<fieldset id="{{ id }}" class="checkbox-group{% if width != 'normal' %} checkbox-group--{{ width }}{% endif %}{% if scroll %} checkbox-group--scroll{% endif %}"{% if hint %} aria-describedby="{{ id }}-group-hint"{% endif %}>
+<fieldset class="checkbox-group{% if width != 'normal' %} checkbox-group--{{ width }}{% endif %}{% if scroll %} checkbox-group--scroll{% endif %}"{{ group_attrs|xmlattr }}>
   <legend>{{ label }}</legend>
   {% if hint %}<span class="field__hint" id="{{ id }}-group-hint">{{ hint }}</span>{% endif %}
+  {% if error %}<span class="field__error" id="{{ id }}-group-error">{{ error }}</span>{% endif %}
   <div class="checkbox-group__options">
     {% for value, text in options %}
       {{ _checkbox_row(name, text, value|string in selected, value) }}
@@ -113,27 +127,28 @@
 {% if collapsible %}</div></details>{% endif %}
 {%- endmacro %}
 
-{# Значения options сравниваются строкой, включая числовые ключи. #}
-{% macro select(name, label, options, selected=None) -%}
-{% call(description) _field_shell(name, label) %}
-<select name="{{ name }}" id="{{ name }}"{{ description|xmlattr }}>{% for value, text in options %}<option value="{{ value }}"{% if selected is not none and value|string == selected|string %} selected{% endif %}>{{ text }}</option>{% endfor %}</select>
+{# Значения options сравниваются строкой; вместо placeholder используется пустая option. #}
+{% macro select(name, label, options, selected=None, hint=None, error=None, required=False, attrs={}) -%}
+{% call(control) _field_shell(attrs.get('id', name), label, hint, error, attrs, required) %}
+<select name="{{ name }}"{{ control|xmlattr }}>{% for value, text in options %}<option value="{{ value }}"{% if selected is not none and value|string == selected|string %} selected{% endif %}>{{ text }}</option>{% endfor %}</select>
 {% endcall %}
 {%- endmacro %}
 
 {# Многострочное поле использует общую подпись и подсказку. #}
-{% macro textarea(name, label, value='', rows=4, hint=None) -%}
+{% macro textarea(name, label, value='', rows=4, hint=None, error=None, placeholder='', required=False, attrs={}) -%}
 {% set value = value if value is not none else '' %}
-{% call(description) _field_shell(name, label, hint) %}
-<textarea name="{{ name }}" id="{{ name }}" rows="{{ rows }}"{{ description|xmlattr }}>{{ value }}</textarea>
+{% call(control) _field_shell(attrs.get('id', name), label, hint, error, attrs, required, placeholder if placeholder is not none else '') %}
+<textarea name="{{ name }}" rows="{{ rows }}"{{ control|xmlattr }}>{{ value }}</textarea>
 {% endcall %}
 {%- endmacro %}
 
-{# SMTP-пароль только заменяется: сохранённое значение не попадает в HTML. #}
-{% macro secret_field(name, label, has_value, placeholder_hint='', clearable=False) -%}
+{# SMTP-пароль только заменяется; placeholder_hint сохраняет прежнее имя параметра.
+   required=True требует замену даже при сохранённом пароле: выбирает сервис. #}
+{% macro secret_field(name, label, has_value, placeholder_hint='', clearable=False, hint=None, error=None, required=False, attrs={}) -%}
 {% set placeholder_hint = placeholder_hint if placeholder_hint is not none else '' %}
-{% call(description) _field_shell(name, label) %}
-<input name="{{ name }}" id="{{ name }}" type="password" value="" autocomplete="new-password" placeholder="{{ placeholder_hint or ('•••••• (сохранён)' if has_value else '') }}"{% if has_value %} aria-describedby="{{ name }}-hint"{% endif %}>
-{% if has_value %}<span class="field__hint" id="{{ name }}-hint">Оставьте пустым, чтобы сохранить пароль.</span>{% endif %}
+{% set hint = hint if hint is not none else ('Оставьте пустым, чтобы сохранить пароль.' if has_value else none) %}
+{% call(control) _field_shell(attrs.get('id', name), label, hint, error, attrs, required, placeholder_hint or ('•••••• (сохранён)' if has_value else '')) %}
+<input name="{{ name }}" type="password" value="" autocomplete="new-password"{{ control|xmlattr }}>
 {% if has_value and clearable %}<label class="checkbox-row"><input type="checkbox" name="{{ name }}__clear" id="{{ name }}__clear" value="1"><span>Очистить</span></label>{% endif %}
 {% endcall %}
 {%- endmacro %}
@@ -148,14 +163,19 @@
 {% if key %}<div class="api-key"><pre id="{{ id }}">{{ key }}</pre>{{ copy_button(id) }}</div>{% endif %}
 {%- endmacro %}
 
-{# Настоящий input сохраняет клавиатурный выбор и проверку required. #}
-{% macro file_picker(name, id, label, multiple=False, accept='', required=False) -%}
+{# Настоящий input сохраняет клавиатурный выбор и required; placeholder у file отсутствует. #}
+{% macro file_picker(name, id, label, multiple=False, accept='', required=False, hint=None, error=None, attrs={}) -%}
+{% set id = attrs.get('id', id) %}
 {% set empty_text = 'Файлы не выбраны' if multiple else 'Файл не выбран' %}
-<div class="field"><span class="field__label" id="{{ id }}-label">{{ label }}</span><div class="file-picker">
-  <input class="file-picker__input" type="file" name="{{ name }}" id="{{ id }}" data-file-input="{{ id }}-status" aria-labelledby="{{ id }}-label {{ id }}-button" aria-describedby="{{ id }}-status"{% if multiple %} multiple{% endif %}{% if accept %} accept="{{ accept }}"{% endif %}{% if required %} required{% endif %}>
+{% call(control) _field_shell(id, none, hint, error, attrs, required) %}
+{% if 'aria-describedby' not in attrs %}{% set _ = control.update({'aria-describedby': id ~ '-status' ~ (' ' ~ control['aria-describedby'] if control.get('aria-describedby') else '')}) %}{% endif %}
+{% if 'aria-labelledby' not in control %}{% set _ = control.update({'aria-labelledby': id ~ '-label ' ~ id ~ '-button'}) %}{% endif %}
+<span class="field__label" id="{{ id }}-label">{{ label }}</span><div class="file-picker">
+  <input class="file-picker__input" type="file" name="{{ name }}" data-file-input="{{ id }}-status"{% if multiple %} multiple{% endif %}{% if accept %} accept="{{ accept }}"{% endif %}{{ control|xmlattr }}>
   <label for="{{ id }}" class="btn btn--secondary file-picker__button" id="{{ id }}-button">{{ 'Выбрать файлы' if multiple else 'Выбрать файл' }}</label>
   <span class="file-picker__status" id="{{ id }}-status" data-file-status data-empty-text="{{ empty_text }}" aria-live="polite">{{ empty_text }}</span>
-</div></div>
+</div>
+{% endcall %}
 {%- endmacro %}
 
 {# Состояние названо текстом; точка только дублирует его цветом. #}

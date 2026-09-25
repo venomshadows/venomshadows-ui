@@ -12,7 +12,7 @@ SVG-иконки, каркасы Jinja, формы, уведомления и п
 ```toml
 [project]
 dependencies = [
-  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.1",
+  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.2",
 ]
 ```
 
@@ -105,13 +105,13 @@ view с подчёркиванием на конце. В шаблоне `nav_act
 | `page_header(title, count=None, lead=None)` | Заголовок, счётчик и описание; caller для действий необязателен. |
 | `btn(label, variant='primary', type='submit', icon=None, small=False, attrs={})` | Кнопка; варианты `primary`, `secondary`, `danger`, дополнительные атрибуты через словарь. |
 | `field(name, label, value='', type='text', hint=None, error=None, placeholder='', required=False, attrs={})` | Поле с подписью и связанными подсказкой/ошибкой; `attrs.id` переопределяет id. |
-| `checkbox(name, label, checked=False, hint=None)` | Флажок с кликабельной строкой и значением `1`. |
-| `select(name, label, options, selected=None)` | Выбор из пар `(value, label)`. |
-| `textarea(name, label, value='', rows=4, hint=None)` | Многострочный ввод. |
-| `secret_field(name, label, has_value, placeholder_hint='', clearable=False)` | Пустое поле замены SMTP-пароля; флажок очистки называется `<name>__clear`. |
+| `checkbox(name, label, checked=False, hint=None, error=None, required=False, attrs={})` | Флажок с кликабельной строкой и значением `1`. |
+| `select(name, label, options, selected=None, hint=None, error=None, required=False, attrs={})` | Выбор из пар `(value, label)`. |
+| `textarea(name, label, value='', rows=4, hint=None, error=None, placeholder='', required=False, attrs={})` | Многострочный ввод с нативной проверкой обязательности. |
+| `secret_field(name, label, has_value, placeholder_hint='', clearable=False, hint=None, error=None, required=False, attrs={})` | Пустое поле замены SMTP-пароля; флажок очистки называется `<name>__clear`. |
 | `copy_button(target_id, label='Копировать')` | Копирование поля или текста элемента по id. |
 | `api_key_block(key, id='api-key')` | Ключ целиком в `pre` с копированием; пустой ключ не выводится. |
-| `file_picker(name, id, label, multiple=False, accept='', required=False)` | Настоящий file input с русскими подписями и статусом выбора. |
+| `file_picker(name, id, label, multiple=False, accept='', required=False, hint=None, error=None, attrs={})` | Настоящий file input с русскими подписями и статусом выбора. |
 | `state_marker(on, on_text='Настроено', off_text='Не настроено')` | Точка и текст состояния подключения. |
 | `status_pill(tone, label, icon=None)` | Плашка `success`, `danger`, `warning`, `partial`, `accent` или `neutral`. |
 | `settings_section(id, title, marker_on, marker_on_text='Настроено', marker_off_text='Не настроено', hint=None, action=None, section=None)` | Панель с caller; при `action` добавляет POST-форму, CSRF и скрытое поле `section` (по умолчанию id). |
@@ -192,7 +192,7 @@ python -m venv .venv
 ```
 
 Страницы: `http://127.0.0.1:5077/demo/settings`, `/demo/components`,
-`/demo/sidebar`, `/demo/login`. Формы демонстрируют разметку; обработчиков
+`/demo/sidebar`, `/demo/login`, `/demo/list`, `/demo/list-server`, `/demo/cards`. Формы демонстрируют разметку; обработчиков
 сохранения, проверки подключений и авторизации в демо нет.
 
 ```powershell
@@ -255,7 +255,7 @@ CSS-проверки охватывают все `static/*.css`, включая 
 
 ## Группа флажков
 
-`ui.checkbox_group(name, label, options, checked=(), hint=None, columns_min='14rem', scroll=False, id=None, collapsible=False)`
+`ui.checkbox_group(name, label, options, checked=(), hint=None, columns_min='14rem', scroll=False, id=None, collapsible=False, error=None, attrs={})`
 создаёт fieldset с legend и общей сеткой кликабельных строк.
 `options` — пары `(value, label)`, `checked` — выбранные значения;
 числовые и строковые ключи сравниваются как строки. Одиночное значение тоже допустимо.
@@ -291,3 +291,104 @@ collapsible=True оборачивает ту же группу в details.checkb
 Флажок выбора всех и активная сортировка показаны первыми через CSS order; DOM-порядок сохранён.
 Остальные заголовки визуально скрыты, но остаются доступны скринридерам.
 Сортировка сохраняется в обоих режимах: кнопки в `client`, ссылки в `server`.
+
+
+## Строки подробностей
+
+В обоих режимах после `<tr data-row>` можно разместить одну или несколько
+`list.detail_row(colspan, id=None, hidden=True)` с содержимым через caller.
+В режиме `client` они перемещаются вместе с владельцем при сортировке и скрываются вместе с ним
+при фильтрации и ленивом показе. Счётчики и выбор учитывают только `data-row`.
+Открытое состояние сохраняется при смене фильтров. На телефоне подробности
+занимают всю ширину под карточкой владельца.
+
+```jinja
+<tr {{ list.row_attrs(row.title, id=row.id) }}>
+  <td>{{ row.title }}</td>
+  <td><button type="button" data-detail-toggle aria-expanded="false"
+              aria-controls="detail-{{ row.id }}">Подробности</button></td>
+</tr>
+{% call list.detail_row(2, id='detail-' ~ row.id) %}
+  {{ ui.textarea('text-' ~ row.id, 'Текст', value=row.text) }}
+{% endcall %}
+```
+
+`aria-controls` содержит id подробностей (несколько id разделяются пробелами).
+У каждого блока должен быть уникальный id; кнопка находится внутри владельца.
+Без `aria-controls` кнопка управляет всеми подробностями владельца; пустое или
+несовпавшее значение не меняет строки и `aria-expanded`.
+Удаляйте владельцев через `VenomList.removeRows(rows)`: функция принимает коллекцию
+элементов `data-row`, удаляет каждого вместе со всеми следующими `data-row-detail`
+и отправляет один `venomlist:refresh` на каждый затронутый список.
+Например: `VenomList.removeRows(document.querySelectorAll('#domains .is-selected'))`.
+Прямое удаление только владельца оставит осиротевшие подробности.
+Демо `/demo/list` и `/demo/list-server` показывают подробности каждой третьей строки.
+
+## Списки карточек и sort_control
+
+`list.card_list(id, label=None)` создаёт `<ul class="card-list" data-list-body>`;
+он также получает `data-list` для инициализации и `tabindex="-1"` для возврата фокуса.
+caller содержит `li` с `list.row_attrs`. Поиск, чипы, счётчики, URL/sessionStorage,
+сортировка, `lazy_sentinel` (порциями по 50) и `bulk_bar` работают как у таблицы.
+`list.select_box(id, label, name=None)` создаёт флажок без табличной ячейки;
+`name='ids'` позволяет отправлять выбранные значения обычной POST-формой.
+
+`list.sort_control(columns, sort=None, dir='asc', target=None, selectable=False)`
+выводит однострочную прокручиваемую группу заголовков с теми же кнопками,
+иконками, что и таблица. Это `<div class="sort-control" role="group" aria-label="Сортировка">`:
+активная кнопка имеет `aria-pressed="true"` и скрытую подпись направления
+«по возрастанию» / «по убыванию», обновляемую при сортировке; `aria-sort` остаётся
+только у табличных заголовков. `columns` имеет тот же формат.
+Размещайте группу непосредственно перед списком либо передавайте `target=id`.
+`selectable=True` добавляет выбор всех видимых карточек без имени поля.
+
+```jinja
+{% call list.filter_bar('versions') %}
+  {{ list.search() }}
+  {{ list.chips('status', 'Статус', statuses) }}
+{% endcall %}
+{{ list.sort_control(columns, sort='date', dir='desc', selectable=true) }}
+{% call list.card_list('versions', label='Версии шаблонов') %}
+  {% for row in rows %}
+  <li {{ list.row_attrs(row.title, {'status': row.status},
+                         {'date': row.date, 'title': row.title}, id=row.id) }}>
+    {{ list.select_box(row.id, row.title, name='ids') }}
+    {{ row.title }}
+  </li>
+  {% endfor %}
+  <li data-empty-row hidden>Ничего не найдено</li>
+{% endcall %}
+{{ list.lazy_sentinel('versions') }}
+{% call list.bulk_bar('versions') %}{{ ui.btn('Применить') }}{% endcall %}
+```
+
+Произвольный контейнер отмечайте `data-list` и уникальным `id`, а тело —
+`data-list-body` (это может быть тот же элемент). Владельцы `data-row` должны
+быть непосредственными детьми тела. Старые таблицы с `tbody` продолжают работать.
+После добавления строк отправляйте `venomlist:refresh` на контейнер; для нового
+списка вызывайте `VenomList.init(container)`. Демо `/demo/cards` содержит 40 карточек.
+
+Рекомендуемая структура карточки: `.card-list__content` объединяет флажок,
+`.card-list__thumbnail` (миниатюра) и `.card-list__text` (заголовок, дата, статус).
+Эти классы входят в пакет и подходят для списков brand и complaints.
+На `.card-list` можно переопределить локальные переменные `--list-gap` (интервал),
+`--list-card-pad` (отступ карточки) и `--list-thumbnail-size` (размер миниатюры).
+
+## Общие параметры полей
+
+`field`, `textarea`, `select`, `checkbox`, `secret_field` и `file_picker` принимают
+`required`, `attrs`, `hint`, `error`. Дополнительные атрибуты попадают на сам control;
+`attrs.id` меняет также связанные подписи. Подсказка и ошибка связаны через
+`aria-describedby`, ошибка добавляет `aria-invalid="true"`. Явные ARIA-атрибуты
+в `attrs` имеют приоритет. `textarea` и `field` поддерживают `placeholder`;
+у `secret_field` он называется `placeholder_hint`. У select, checkbox и file
+нет placeholder: используйте пустую option либо постоянную подпись.
+`required=True` у `secret_field` требует новый пароль даже при сохранённом значении.
+`checkbox_group` принимает `hint`, `error`, `attrs` для fieldset; `required` к группе
+не применяется, поскольку требование к каждому checkbox заставило бы выбрать всё.
+
+```jinja
+{{ ui.textarea('domains', 'Добавить домены', required=true,
+               placeholder='example.org', attrs={'data-domains': ''},
+               hint='Один домен на строку', error=errors.get('domains')) }}
+```
