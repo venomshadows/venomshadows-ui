@@ -6,13 +6,14 @@
 {%- endmacro %}
 
 {# Панель объединяет фильтры; сервер сам передаёт достоверные счётчики. #}
-{% macro filter_bar(target, mode='client', action=None, total=None, shown=None, label=None) -%}
+{% macro filter_bar(target, mode='client', action=None, total=None, shown=None, label=None, persist='session', persist_ttl=None, reset_keep=()) -%}
+{% set reset_keep = [reset_keep] if reset_keep is string else (reset_keep or []) %}
 <form class="filter-bar" role="search" aria-label="Фильтры{% if label %}: {{ label }}{% endif %}" data-filter-bar
-      data-target="{{ target }}" data-mode="{{ mode }}"
+      data-target="{{ target }}" data-mode="{{ mode }}" data-persist="{{ persist }}"{% if persist_ttl is not none %} data-persist-ttl="{{ persist_ttl }}"{% endif %}
       {%- if mode == 'server' %} method="get"{% if action %} action="{{ action }}"{% endif %}{% endif %}>
   {%- if mode == 'server' %}
     {%- set query = [] %}
-    {{- _query_args(query, keep=('sort', 'dir')) }}
+    {{- _query_args(query, keep=['sort', 'dir'] + reset_keep|list) }}
     {%- for name, value in query %}
       <input type="hidden" name="{{ name }}" value="{{ value }}">
     {%- endfor %}
@@ -25,7 +26,7 @@
     {%- set active = namespace(value=false) %}
     {%- set filters = [] %}
     {{- _query_args(filters) }}
-    {%- for name, value in filters if value %}
+    {%- for name, value in filters if value and name not in reset_keep %}
       {%- set active.value = true %}
     {%- endfor %}
     <a class="btn btn--secondary filter-bar__reset" data-list-reset href="{{ request.path }}{% if query %}?{{ query|urlencode }}{% endif %}"{% if not active.value %} aria-disabled="true" tabindex="-1"{% endif %}>
@@ -43,19 +44,19 @@
 {%- endmacro %}
 
 {# Вложенный label не требует уникального id на странице с несколькими списками. #}
-{% macro search(name='q', label='Поиск', value='', placeholder='Поиск') -%}
+{% macro search(name='q', label='Поиск', value='', placeholder='Поиск', mode='words') -%}
 <label class="list-search">
   <span class="visually-hidden">{{ label }}</span>
   {{ venom_icon('search') }}
   <input type="search" name="{{ name }}" value="{{ value }}"
-         placeholder="{{ placeholder }}" data-list-search autocomplete="off">
+         placeholder="{{ placeholder }}" data-list-search data-search-mode="{{ mode }}" autocomplete="off">
 </label>
 {%- endmacro %}
 
 {# Скрытое поле сохраняет выбранный чип при обычной GET-отправке. #}
-{% macro chips(name, label, options, selected=None, counts=None) -%}
-<div class="list-chips" role="group" aria-label="{{ label }}" data-chip-group="{{ name }}">
-  <input type="hidden" name="{{ name }}" value="{{ selected or '' }}" data-chip-value>
+{% macro chips(name, label, options, selected=None, counts=None, count_scope=None, none_value='__none__') -%}
+<div class="list-chips" role="group" aria-label="{{ label }}" data-chip-group="{{ name }}" data-none-value="{{ none_value }}"{% if count_scope is not none %} data-count-scope="{{ count_scope|join(' ') }}"{% endif %}>
+  <input type="hidden" name="{{ name }}" value="{{ selected or '' }}" data-chip-value data-none-value="{{ none_value }}">
   {%- for option in options %}
     <button type="button" class="btn chip" data-chip="{{ option[0] }}"
             {%- if option|length > 2 %} data-tone="{{ option[2] }}"{% endif %}
@@ -68,11 +69,11 @@
 {%- endmacro %}
 
 {# Нативный select сохраняет клавиатурное управление и мобильный выбор. #}
-{% macro dropdown(name, label, options, selected=None) -%}
+{% macro dropdown(name, label, options, selected=None, none_value='__none__') -%}
 <label class="list-dropdown">
   <span class="list-dropdown__label">{{ label }}</span>
   <span class="list-dropdown__control">
-    <select name="{{ name }}" data-list-filter>
+    <select name="{{ name }}" data-list-filter data-none-value="{{ none_value }}">
       {%- for option in options %}
         {%- set value, text = option[0], option[1] %}
         <option value="{{ value }}"{% if value == (selected or '') %} selected{% endif %}>{{ text }}</option>
@@ -80,6 +81,14 @@
     </select>
     {{ venom_icon('chevron-down') }}
   </span>
+</label>
+{%- endmacro %}
+
+{# Общая разметка подписи сохраняет одну ось с dropdown; тип задаёт сервис. #}
+{% macro input(name, label, value='', type='text', attrs={}, label_visible=False) -%}
+<label class="list-dropdown list-input">
+  <span class="{{ 'list-dropdown__label' if label_visible else 'visually-hidden' }}">{{ label }}</span>
+  <input type="{{ type }}" name="{{ name }}" value="{{ value }}" data-list-filter{{ attrs|xmlattr }}>
 </label>
 {%- endmacro %}
 
@@ -136,17 +145,17 @@
    В строках: list.select_cell(id, label, name=select_name). Без select_name старый
    caller без аргументов сохраняется. Флажок «выбрать все» всегда без name. #}
 {% macro data_table(id, columns, sort=None, dir='asc', mode='client', compact=False,
-                    stacked=False, selectable=False, label='Таблица', fixed=False, select_name=None) -%}
+                    stacked=False, selectable=False, label='Таблица', fixed=False, select_name=None, reveal_on_filter=False) -%}
 <div class="table-scroll{% if fixed %} table-scroll--fixed{% endif %}"
      role="region" aria-label="{{ label }}" tabindex="0">
   <table id="{{ id }}"
          class="data-table{% if compact %} data-table--compact{% endif %}{% if stacked %} data-table--stacked{% endif %}"
-         data-list data-mode="{{ mode }}" data-sort="{{ sort or '' }}" data-dir="{{ dir }}">
+         data-list data-reveal-on-filter="{{ 'true' if reveal_on_filter else 'false' }}" data-mode="{{ mode }}" data-sort="{{ sort or '' }}" data-dir="{{ dir }}">
     <thead>
       <tr>
         {%- if selectable %}
           <th scope="col" class="data-table__select">
-            <label class="list-select"><input type="checkbox" data-select-all aria-label="Выбрать все видимые строки"></label>
+            <label class="list-select"><input type="checkbox" data-select-all aria-label="Выбрать все подходящие строки"></label>
           </th>
         {%- endif %}
         {%- for column in columns %}
@@ -213,8 +222,8 @@ data-row{% if pending %} data-lazy-pending{% endif %} data-search="{{ (search if
 {%- endmacro %}
 
 {# Явное тело списка позволяет карточкам использовать общую фильтрацию и выбор. #}
-{% macro card_list(id, label=None) -%}
-<ul id="{{ id }}" class="card-list" data-list data-list-body tabindex="-1"{% if label %} aria-label="{{ label }}"{% endif %}>
+{% macro card_list(id, label=None, reveal_on_filter=False) -%}
+<ul id="{{ id }}" class="card-list" data-list data-reveal-on-filter="{{ 'true' if reveal_on_filter else 'false' }}" data-list-body tabindex="-1"{% if label %} aria-label="{{ label }}"{% endif %}>
   {{ caller() }}
 </ul>
 {%- endmacro %}
@@ -222,7 +231,7 @@ data-row{% if pending %} data-lazy-pending{% endif %} data-search="{{ (search if
 {# Группа сортирует соседний список: aria-pressed не требует табличной семантики. #}
 {% macro sort_control(columns, sort=None, dir='asc', target=None, selectable=False) -%}
 <div class="sort-control" role="group" aria-label="Сортировка" data-sort-control data-sort="{{ sort or '' }}" data-dir="{{ dir }}"{% if target %} data-target="{{ target }}"{% endif %}>
-  {% if selectable %}<label class="list-select"><input type="checkbox" data-select-all aria-label="Выбрать все видимые строки"></label>{% endif %}
+  {% if selectable %}<label class="list-select"><input type="checkbox" data-select-all aria-label="Выбрать все подходящие строки"></label>{% endif %}
   {% for column in columns if column.sortable|default(true) %}{{ sort_th(column, sort, dir, 'client', header=false) }}{% endfor %}
 </div>
 {%- endmacro %}

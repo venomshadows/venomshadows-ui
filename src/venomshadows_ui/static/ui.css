@@ -410,6 +410,29 @@ code, kbd {
   border-radius: var(--radius-xs);
 }
 .btn:active:not(:disabled), .btn-link:active, .icon-btn:active:not(:disabled) { scale: .96; }
+/* Псевдоэлемент расширяет нажатие, не увеличивая высоту строки таблицы. */
+.icon-btn--compact {
+  position: relative;
+  vertical-align: middle;
+  width: var(--icon-button-compact);
+  height: var(--icon-button-compact);
+  min-width: var(--icon-button-compact);
+  min-height: var(--icon-button-compact);
+}
+.icon-btn--compact::before {
+  content: "";
+  position: absolute;
+  inset: calc((100% - var(--tap)) / 2);
+}
+.icon-btn--compact + .icon-btn--compact { margin-inline-start: var(--action-gap); }
+.icon-btn--danger {
+  color: var(--color-danger-text);
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+}
+.icon-btn--danger:hover {
+  background: var(--color-danger-bg-hover);
+}
 .btn:disabled:not([aria-busy="true"]), .icon-btn:disabled {
   background: var(--color-bg-disabled);
   border-color: var(--border);
@@ -477,7 +500,8 @@ input:where(:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([
 }
 textarea { resize: vertical; }
 input::placeholder, textarea::placeholder { color: var(--color-text-placeholder); opacity: 1; }
-input:where(:not([type="checkbox"]):not([type="radio"])):focus-visible, select:focus-visible, textarea:focus-visible {
+input:where(:not([type="checkbox"]):not([type="radio"])):focus-visible, select:focus-visible, textarea:focus-visible,
+input:where([type="date"], [type="datetime-local"], [type="time"], [type="month"], [type="week"]):focus-within {
   outline: none;
   border-color: var(--color-accent);
   box-shadow: var(--focus-ring);
@@ -530,6 +554,7 @@ input:user-invalid, select:user-invalid, textarea:user-invalid, [aria-invalid="t
 
 /* Статус: цвет дублируется подписью, рамки нет. */
 .pill {
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: .35rem;
@@ -587,6 +612,12 @@ input:user-invalid, select:user-invalid, textarea:user-invalid, [aria-invalid="t
   overflow-wrap: anywhere;
 }
 .banner__text { margin: 0; }
+.banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--action-gap);
+}
 .banner__details { margin-top: .5rem; }
 .banner__details summary {
   cursor: pointer;

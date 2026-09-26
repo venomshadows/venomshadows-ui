@@ -42,8 +42,41 @@
     return button?.hasAttribute(name) ? button.getAttribute(name) : (form?.getAttribute(name) ?? null);
   }
 
+  function pluralRu(n, one, few, many) {
+    const count = Math.abs(Number(n));
+    const last = count % 10;
+    const pair = count % 100;
+    if (Number.isInteger(count) && last === 1 && pair !== 11) return one;
+    if (Number.isInteger(count) && last >= 2 && last <= 4 && (pair < 12 || pair > 14)) return few;
+    return many;
+  }
+
+  function confirmationCount(source, form) {
+    const explicit = attribute(form, source, 'data-confirm-count');
+    if (explicit !== null) {
+      const count = Number(explicit);
+      return Number.isFinite(count) && count >= 0 ? Math.floor(count) : 0;
+    }
+    // Связь с конкретным списком исключает флажки соседних таблиц и меню действий.
+    const target = attribute(form, source, 'data-confirm-target') || attribute(form, source, 'data-target')
+      || source?.closest('[data-bulk-bar]')?.dataset.target;
+    const list = target ? document.getElementById(target) : source?.closest('[data-list]');
+    const boxes = list ? Array.from(list.querySelectorAll('[data-row-select]'))
+      : (!target && form ? Array.from(form.elements).filter(field => field.matches('[data-row-select]')) : []);
+    return boxes.filter(box => box.checked && !box.disabled).length;
+  }
+
+  function confirmationText(source, form) {
+    const question = attribute(form, source, 'data-confirm') || '';
+    if (!question.includes('{n}') && !question.includes('{noun}')) return question;
+    const count = confirmationCount(source, form);
+    const forms = (attribute(form, source, 'data-confirm-forms') || '').split('|');
+    const noun = forms.length === 3 && forms.every(form => form.trim()) ? pluralRu(count, ...forms) : '';
+    return question.replaceAll('{n}', String(count)).replaceAll('{noun}', noun).replace(/\s+([,.!?;:])/g, '$1').replace(/ {2,}/g, ' ').trim();
+  }
+
   function askConfirmation(source, form, button, resume) {
-    const question = attribute(form, source, "data-confirm");
+    const question = confirmationText(source, form);
     if (!dialog) {
       // На странице без общего диалога подтверждение всё равно обязательно.
       if (window.confirm(question)) resume();
@@ -243,7 +276,7 @@
   desktop.addEventListener("change", event => { if (event.matches) setSidebarOpen(false, false); });
   document.addEventListener("keydown", event => {
     if (!drawerOpen) return;
-    if (event.key === "Escape") { event.preventDefault(); setSidebarOpen(false); }
+    if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); setSidebarOpen(false); }
     if (event.key !== "Tab") return;
     const focusable = Array.from(sidebar.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]')).filter(el => el.getClientRects().length);
     const first = focusable[0], last = focusable[focusable.length - 1];
@@ -288,5 +321,5 @@
     updateFiles();
   });
   updateFiles();
-  window.VenomUI = Object.freeze({ copyFrom, resetBusy, setSidebarOpen, updateFileStatus });
+  window.VenomUI = Object.freeze({ copyFrom, resetBusy, setSidebarOpen, updateFileStatus, pluralRu });
 })();

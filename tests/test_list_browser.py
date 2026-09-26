@@ -67,7 +67,7 @@ def test_filter_sort_selection_and_state(browser, live_url):
     visible = page.locator('[data-row]:visible')
     assert visible.count() == 50
     page.locator('[data-select-all]').check()
-    assert page.locator('[data-selection-count]').inner_text() == '50'
+    assert page.locator('[data-selection-count]').inner_text() == '180'
     page.locator('[data-row-select]').first.uncheck()
     assert page.locator('[data-select-all]').evaluate('(el) => el.indeterminate')
     page.locator('[data-chip="new"]').click()
@@ -93,7 +93,7 @@ def test_filter_sort_selection_and_state(browser, live_url):
     page.locator('[data-list-reset]').click()
     assert visible.count() == 50
     assert page.locator('[data-list-reset]').is_disabled()
-    page.locator('[data-reveal-more]').click()
+    page.locator('[data-reveal-more]').evaluate('el => el.click()')
     assert visible.count() >= 100
     page.locator('[data-chip="used"]').click()
     page.goto(live_url + '/demo/list')
@@ -127,7 +127,7 @@ def test_responsive_and_server(browser, live_url, width, path):
     else:
         page.locator('[data-select-all]').check()
         page.locator('[data-demo-delete]').click()
-        assert page.locator('[data-list-count]').inner_text() == '130 из 130'
+        assert page.locator('[data-list-count]').inner_text() == '0 из 0'
         assert page.locator('[data-bulk-bar]').is_hidden()
     page.close()
 
@@ -330,8 +330,12 @@ def test_lazy_selection_survives_sort_and_matching_filter(browser, live_url):
     assert page.locator('[data-row]:visible').count() == 50
     assert box.is_checked()
     page.locator('[data-list-search]').fill('missing')
-    assert not box.is_checked()
+    assert box.is_checked()
+    assert box.is_disabled()
     assert page.evaluate('window.selectedIds') == []
+    page.locator('[data-list-reset]').click()
+    assert box.is_checked() and box.is_enabled()
+    assert page.evaluate('window.selectedIds') == ['60']
     page.close()
 
 

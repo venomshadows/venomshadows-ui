@@ -11,7 +11,7 @@
     {% endif %}
     <main class="content" id="main" tabindex="-1" data-sidebar-behind>
       {% block subnav %}{% endblock %}
-      {{ ui.flash_stack() }}
+      {% block flash %}{{ ui.flash_stack() }}{% endblock %}
       {% block content %}{% endblock %}
     </main>
   </div>

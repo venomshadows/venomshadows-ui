@@ -142,6 +142,12 @@
 
   /* ── Раскладка ── */
   --tap: 44px;                          /* минимальная зона нажатия */
+  --icon-button-compact: 28px;
+  --border-width-thin: 1px;
+  --action-gap: .5rem;
+  --compact-row-offset: -.25rem;
+  /* Нативная дата должна совпадать с высотой строки, полей и рамки обычного input. */
+  --control-height: calc(var(--text-base) * var(--leading-body) + 1.2rem + 2px);
   --gutter: clamp(1rem, 3vw, 2.5rem);   /* боковой отступ шапки, страниц, баннеров */
   --sidebar-w: 20rem;                   /* левое меню: одинаково на всех страницах */
   --drawer-w: min(88vw, 360px);         /* левое меню-шторка ≤860px */

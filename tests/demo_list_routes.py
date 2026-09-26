@@ -32,6 +32,7 @@ def server_list():
         brand = ""
     words = q.lower().replace("ё", "е").split()
     scope = [row for row in rows if (not brand or row["brand"] == brand)
+             and (not request.args.get('date') or row['date'] == request.args['date'])
              and all(word in f'{row["domain"]} {row["brand"]}'.lower().replace("ё", "е") for word in words)]
     counts = {option[0]: sum(not option[0] or row["status"] == option[0] for row in scope) for option in STATUSES}
     shown = [row for row in scope if not status or row["status"] == status]

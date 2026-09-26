@@ -4,7 +4,11 @@
   const normalize = value => String(value || '').toLocaleLowerCase('ru').replace(/ё/g, 'е');
   const linked = (selector, target) => all(selector).filter(node => node.dataset.target === target);
   const checkbox = row => row.querySelector('[data-row-select]');
+  const selectableRows = state => (state.client ? state.client.matching : state.rows.filter(row => !row.hidden))
+    .filter(row => { const box = checkbox(row); return box && !box.disabled; });
   const initialized = new WeakSet();
+  const filteredBoxes = new WeakMap();
+  const handoffBindings = new Map();
 
   // Старые tbody поддерживаются, новые контейнеры явно отмечают тело списка.
   const bodies = target => target.matches('[data-list-body]') ? [target] : all('[data-list-body], tbody', target);
@@ -141,7 +145,16 @@
 
   function restore(state) {
     let saved = {};
-    try { saved = JSON.parse(sessionStorage.getItem('venomlist:' + location.pathname + '#' + state.table.id) || '{}') || {}; } catch (_) { /* Хранилище может быть запрещено. */ }
+    try {
+      const raw = state.persistence !== 'none' ? sessionStorage.getItem(state.storageKey) : null;
+      if (state.persistence === 'handoff') sessionStorage.removeItem(state.storageKey);
+      saved = JSON.parse(raw || '{}') || {};
+      if (state.persistence === 'handoff') {
+        const age = Date.now() - saved.timestamp;
+        // Записи хранилища могут быть повреждены или изменены сторонним кодом.
+        saved = saved.path === location.pathname && age >= 0 && age < state.ttl * 1000 ? saved.values || {} : {};
+      }
+    } catch (_) { /* Хранилище может быть запрещено. */ }
     const params = new URLSearchParams(location.search);
     const names = state.fields.map(field => field.name).concat(['sort', 'dir']);
     // Явная ссылка описывает весь список: старые фильтры сессии не подмешиваются.
@@ -163,29 +176,83 @@
     const dir = read('dir');
     if (dir === 'asc' || dir === 'desc') state.direction = dir;
     syncChips(state.form);
+    return !fromURL && names.some(name => typeof saved[name] === 'string');
   }
 
-  function persist(state) {
+  function valuesOf(state) {
     const values = Object.fromEntries(state.fields.map(field => [field.name, field.value]));
     values.sort = state.sort;
     values.dir = state.sort ? state.direction : '';
+    return values;
+  }
+
+  function persist(state, writeStorage = true) {
+    const values = valuesOf(state);
     const url = new URL(location.href);
     Object.entries(values).forEach(([key, value]) => {
       if (value) url.searchParams.set(key, value);
       else url.searchParams.delete(key);
     });
     try { history.replaceState(history.state, '', url); } catch (_) { /* Например, sandbox без доступа к адресу. */ }
-    try { sessionStorage.setItem('venomlist:' + location.pathname + '#' + state.table.id, JSON.stringify(values)); } catch (_) { /* Приватный режим не мешает фильтрации. */ }
+    if (writeStorage && state.persistence === 'session') storeState(state, values);
   }
 
-  function matches(state, row, except) {
+  function storeState(state, values) {
+    try { sessionStorage.setItem(state.storageKey, JSON.stringify(values)); } catch (_) { /* Приватный режим не мешает фильтрации. */ }
+  }
+
+  function bindHandoff(state) {
+    handoffBindings.forEach((controller, table) => {
+      if (!table.isConnected) { controller.abort(); handoffBindings.delete(table); }
+    });
+    if (state.persistence !== 'handoff') return;
+    const controller = new AbortController();
+    handoffBindings.set(state.table, controller);
+    const detach = () => {
+      if (state.table.isConnected) return false;
+      controller.abort();
+      handoffBindings.delete(state.table);
+      return true;
+    };
+    const observer = new MutationObserver(detach);
+    observer.observe(document, { childList: true, subtree: true });
+    controller.signal.addEventListener('abort', () => observer.disconnect(), { once: true });
+    const save = event => {
+      if (detach()) return;
+      // Wait for later delegated handlers, including native-event dispatch, to finish.
+      setTimeout(() => {
+        if (!detach() && !controller.signal.aborted && !event.defaultPrevented) {
+          storeState(state, { path: location.pathname, timestamp: Date.now(), values: valuesOf(state) });
+        }
+      }, 0);
+    };
+    // Перезагрузка не создаёт передачу; сохраняем только уход через элементы страницы.
+    document.addEventListener('submit', event => {
+      const target = event.submitter?.formTarget || event.target.target;
+      if (!event.defaultPrevented && event.target.method !== 'dialog' && (!target || target === '_self')) save(event);
+    }, { signal: controller.signal });
+    document.addEventListener('click', event => {
+      const link = event.target.closest('a[href]');
+      if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || !link || link.download || (link.target && link.target !== '_self')) return;
+      const url = new URL(link.href, location.href);
+      if (url.origin === location.origin && (url.pathname !== location.pathname || url.search !== location.search)) save(event);
+    }, { signal: controller.signal });
+  }
+
+  function tokenMatch(row, name, value, noneValue = '__none__') {
+    const tokens = (row.getAttribute('data-filter-' + name) || '').trim().split(/\s+/).filter(Boolean);
+    return !value || (value === noneValue ? tokens.length === 0 : tokens.includes(value));
+  }
+
+  function matches(state, row, except, scope = null) {
     return state.fields.every(field => {
-      if (field.name === except || !field.value) return true;
+      if (field.name === except || (scope !== null && !scope.includes(field.name)) || !field.value) return true;
       if (field.matches('[data-list-search]')) {
         const haystack = normalize(row.dataset.search);
+        if (field.dataset.searchMode === 'substring') return haystack.includes(normalize(field.value).trim());
         return normalize(field.value).split(/\s+/).filter(Boolean).every(word => haystack.includes(word));
       }
-      return row.getAttribute('data-filter-' + field.name) === field.value;
+      return tokenMatch(row, field.name, field.value, field.dataset.noneValue);
     });
   }
 
@@ -194,10 +261,11 @@
     const count = state.form.querySelector('[data-list-count]');
     if (count) count.textContent = state.matching.length + ' из ' + state.rows.length;
     all('[data-chip-group]', state.form).forEach(group => {
-      const scope = state.rows.filter(row => matches(state, row, group.dataset.chipGroup));
+      const names = group.hasAttribute('data-count-scope') ? group.dataset.countScope.split(/\s+/).filter(Boolean) : null;
+      const scope = state.rows.filter(row => matches(state, row, group.dataset.chipGroup, names));
       all('[data-chip]', group).forEach(chip => {
         const count = chip.querySelector('[data-chip-count]');
-        if (count) count.textContent = scope.filter(row => !chip.dataset.chip || row.getAttribute('data-filter-' + group.dataset.chipGroup) === chip.dataset.chip).length;
+        if (count) count.textContent = scope.filter(row => tokenMatch(row, group.dataset.chipGroup, chip.dataset.chip, group.dataset.noneValue)).length;
       });
     });
     syncChips(state.form);
@@ -205,14 +273,14 @@
 
   function updateSelection(state) {
     state.rows = rowsOf(state.table);
-    const visible = state.rows.filter(row => !row.hidden && checkbox(row) && !checkbox(row).disabled);
-    const selected = state.rows.filter(row => checkbox(row)?.checked);
+    const selectable = selectableRows(state);
+    const selected = selectable.filter(row => checkbox(row).checked);
     state.rows.forEach(row => row.classList.toggle('is-selected', Boolean(checkbox(row)?.checked)));
     if (state.selectAll) {
-      const checked = visible.filter(row => checkbox(row).checked).length;
-      state.selectAll.checked = visible.length > 0 && checked === visible.length;
-      state.selectAll.indeterminate = checked > 0 && checked < visible.length;
-      state.selectAll.disabled = visible.length === 0;
+      const checked = selectable.filter(row => checkbox(row).checked).length;
+      state.selectAll.checked = selectable.length > 0 && checked === selectable.length;
+      state.selectAll.indeterminate = checked > 0 && checked < selectable.length;
+      state.selectAll.disabled = selectable.length === 0;
     }
     state.bars.forEach(bar => {
       if (!selected.length && bar.contains(document.activeElement)) {
@@ -238,8 +306,15 @@
       row.hidden = !visible.has(row);
       showDetails(state, row);
       if (!row.hidden) row.removeAttribute('data-lazy-pending');
-      // Выбор снимается только фильтром, а не границей ленивого показа.
-      if (!matching.has(row) && checkbox(row)) checkbox(row).checked = false;
+      // Фильтр исключает строку из POST, сохраняя выбор; ленивый показ не отключает её.
+      const box = checkbox(row);
+      if (box && !matching.has(row)) {
+        if (!filteredBoxes.has(box)) filteredBoxes.set(box, box.disabled);
+        box.disabled = true;
+      } else if (box && filteredBoxes.has(box)) {
+        box.disabled = filteredBoxes.get(box);
+        filteredBoxes.delete(box);
+      }
     });
     state.sentinels.forEach(sentinel => {
       const hidden = state.matching.length <= state.limit;
@@ -291,7 +366,10 @@
   }
 
   function refresh(state, save = true, resetLimit = true) {
-    if (resetLimit) state.limit = state.lazy ? 50 : Infinity;
+    const active = state.sort !== state.defaultSort || state.direction !== state.defaultDirection
+      || state.fields.some(field => field.value);
+    if (active && state.table.dataset.revealOnFilter === 'true') state.limit = Infinity;
+    else if (resetLimit) state.limit = state.lazy ? 50 : Infinity;
     state.matching = state.rows.filter(row => matches(state, row));
     updateCounts(state);
     reveal(state);
@@ -322,7 +400,7 @@
     const changed = event => {
       if (!event.target.matches('[data-select-all], [data-row-select]')) return;
       if (event.target === state.selectAll) {
-        state.rows.filter(row => !row.hidden && checkbox(row) && !checkbox(row).disabled)
+        selectableRows(state)
           .forEach(row => { checkbox(row).checked = state.selectAll.checked; });
       }
       updateSelection(state);
@@ -402,10 +480,17 @@
       headers: all('[data-sort-key]', table).concat(group ? all('[data-sort-key]', group) : []), originalOrder: new WeakMap(rows.map((row, index) => [row, index])), nextOrder: rows.length,
       lazy: sentinels.length > 0 && 'IntersectionObserver' in window,
       sort: table.dataset.sort || group?.dataset.sort || '', direction: (table.dataset.dir || group?.dataset.dir) === 'desc' ? 'desc' : 'asc',
+      persistence: form?.dataset.persist || 'session',
+      storageKey: 'venomlist:' + location.pathname + '#' + table.id,
+      ttl: Number(form?.dataset.persistTtl || 300),
       matching: [], limit: Infinity, revealFrame: null
     };
+    if (selection) selection.client = state;
+    state.defaultSort = state.sort;
+    state.defaultDirection = state.direction;
     collectDetails(state);
-    restore(state);
+    if (restore(state)) persist(state, false);
+    bindHandoff(state);
     applySort(state);
     bindClient(state);
     initLazy(state);

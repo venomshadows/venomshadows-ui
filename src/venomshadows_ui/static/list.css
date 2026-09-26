@@ -135,6 +135,12 @@
   position: relative;
   min-width: 0;
 }
+.list-input input {
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+  height: var(--control-height);
+}
 .list-dropdown select {
   appearance: none;
   padding-right: 2.5rem;
@@ -154,6 +160,7 @@
 /* min-width: 0 важен для таблиц внутри flex/grid-страницы. */
 /* ══ Таблица ═══════════════════════════════════════════════════ */
 .table-scroll {
+  position: relative;
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -478,6 +485,11 @@
   flex-shrink: 0;
   white-space: nowrap;
 }
+/* Яркая граница отделяет обе шапки от однотонной панели. */
+.data-table th,
+.sort-control {
+  border-bottom: var(--border-width-thin) solid var(--border-bright);
+}
 .sort-control .th-sort {
   min-height: var(--tap);
   padding: 0 .5rem;
@@ -546,3 +558,11 @@
     display: none;
   }
 }
+
+.list-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--action-gap);
+}
+/* Компактная кнопка не должна увеличивать высоту обычной текстовой строки. */
+.list-row-actions .icon-btn--compact { margin-block: var(--compact-row-offset); }

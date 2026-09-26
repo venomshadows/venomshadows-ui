@@ -6,26 +6,40 @@
 {% set columns = [{'key': 'domain', 'label': 'Домен'}, {'key': 'status', 'label': 'Статус'}, {'key': 'date', 'label': 'Дата', 'type': 'date'}, {'key': 'number', 'label': 'Число', 'type': 'number', 'align': 'end'}, {'key': 'actions', 'label': 'Действия', 'sortable': False, 'align': 'end', 'width': '100'}] %}
 {% set server = server|default(false) %}
 {% set mode = 'server' if server else 'client' %}
+{% set index_example = not server and request.args.get('example') == 'index' %}
+{% set input_example = request.args.get('example') == 'input' %}
 {% block title %}Демо списка — venom_shadows{% endblock %}
 {% block content %}
 <div class="page">
 {{ ui.page_header('Домены', lead='Серверная фильтрация' if server else 'Фильтрация в браузере') }}
-{% call list.filter_bar('domains', mode=mode, label='Домены', action='/demo/list-server' if server else None, total=total if server else None, shown=rows|length if server else None) %}
-{{ list.search(value=q|default('')) }}
+{% if index_example %}
+{{ ui.banner('warn', 'Пример уведомления с отменой', details=['one.example', 'two.example'], actions=[{'label': 'Отменить', 'action': '/demo/list-selection', 'fields': {'ids': [1, 2]}}]) }}
+{% endif %}
+{% if not server %}<p><a href="/demo/list?example=index">Пример index: теги и пересекающиеся фильтры</a> · <a href="/demo/list?example=input">Фильтр по дате</a> · <a href="/demo/list">Обычный список</a></p>{% endif %}
+{% call list.filter_bar('domains', mode=mode, label='Домены', action='/demo/list-server' if server else None, total=total if server else None, shown=rows|length if server else None, persist='handoff' if index_example else 'session', persist_ttl=300 if index_example else None, reset_keep=['example']) %}
+{{ list.search(value=q|default(''), mode='substring' if index_example else 'words') }}
+{% if index_example %}
+{{ list.chips('show', 'Показать', [('', 'Все'), ('dropped', 'Выпали'), ('errors', 'Ошибки'), ('stale', 'Устарели')], count_scope=['tag']) }}
+{{ list.dropdown('tag', 'Тег', [('', 'Все теги'), ('__none__', 'Без тегов'), ('one', 'Первый'), ('two', 'Второй')]) }}
+{% endif %}
 {{ list.chips('status', 'Статус', statuses, selected=status|default(''), counts=counts|default(None)) }}
 {{ list.dropdown('brand', 'Бренд', brands, selected=brand|default('')) }}
+{% if input_example %}
+{{ list.input('date', 'Дата', value=request.args.get('date', ''), type='date', label_visible=true) }}
+
+{% endif %}
 {% endcall %}
 <form method="post" action="/demo/list-selection">
 {{ venom_ui.csrf() }}
-{% call(select_name) list.data_table('domains', columns, sort=sort|default(None), dir=direction|default('asc'), mode=mode, stacked=true, selectable=true, select_name='ids', fixed=not server, label='Домены') %}
+{% call(select_name) list.data_table('domains', columns, sort=sort|default(None), dir=direction|default('asc'), mode=mode, stacked=true, selectable=true, select_name='ids', fixed=not server, label='Домены', reveal_on_filter=index_example) %}
 <tbody data-list-body>
 {% for item in (rows if server else range(1, 181)) %}
 {% if server %}{% set row = item %}{% else %}
 {% set row = {'id': item, 'domain': 'domain-' ~ item ~ '.example', 'status': statuses[1 + item % 4][0], 'brand': brands[1 + item % 3][0], 'date': '2026-%02d-%02d'|format(1 + (item // 28) % 12, 1 + item % 28), 'number': item * 7 % 101} %}
 {% endif %}
-<tr {{ list.row_attrs(row.domain ~ ' ' ~ row.brand, {'status': row.status, 'brand': row.brand}, {'domain': row.domain, 'status': row.status, 'date': row.date, 'number': row.number}, row.id, pending=not server and loop.index > 50) }}>
+<tr {{ list.row_attrs(row.domain ~ ' ' ~ row.brand, {'status': row.status, 'brand': row.brand, 'date': row.date, 'show': ('dropped errors' if row.id % 2 == 0 else 'stale'), 'tag': ('one two' if row.id % 3 == 0 else ('one' if row.id % 3 == 1 else ''))}, {'domain': row.domain, 'status': row.status, 'date': row.date, 'number': row.number}, row.id, pending=not server and loop.index > 50) }}>
 {{ list.select_cell(row.id, row.domain, name=select_name) }}
-<td data-label="Домен">{{ row.domain }}</td><td data-label="Статус">{% for option in statuses if option[0] == row.status %}{{ ui.status_pill(option[2], option[1]) }}{% endfor %}</td><td data-label="Дата">{{ row.date }}</td><td data-label="Число" class="data-table__end">{{ row.number }}</td><td data-label="Действия">{% if row.id % 3 == 0 %}<button type="button" class="btn btn--secondary" data-detail-toggle aria-expanded="false" aria-controls="detail-{{ row.id }}">Подробности</button>{% else %}<a href="/demo/components">Открыть</a>{% endif %}</td></tr>
+<td data-label="Домен">{{ row.domain }}</td><td data-label="Статус">{% for option in statuses if option[0] == row.status %}{{ ui.status_pill(option[2], option[1]) }}{% endfor %}</td><td data-label="Дата">{{ row.date }}</td><td data-label="Число" class="data-table__end">{{ row.number }}</td><td data-label="Действия"><span class="list-row-actions">{% if index_example %}{{ ui.icon_button("trash", "Удалить " ~ row.domain, variant="danger", compact=true) }}{% endif %}{% if row.id % 3 == 0 %}<button type="button" class="btn btn--secondary" data-detail-toggle aria-expanded="false" aria-controls="detail-{{ row.id }}">Подробности</button>{% else %}<a href="/demo/components">Открыть</a>{% endif %}</span></td></tr>
 {% if row.id % 3 == 0 %}
 {% call list.detail_row(6, id='detail-' ~ row.id) %}
 {# Демо редактирует текст локально: пустое name не добавляет его к форме выбора ids. #}

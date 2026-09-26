@@ -12,7 +12,7 @@ SVG-иконки, каркасы Jinja, формы, уведомления и п
 ```toml
 [project]
 dependencies = [
-  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.2",
+  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.3",
 ]
 ```
 
@@ -109,15 +109,16 @@ view с подчёркиванием на конце. В шаблоне `nav_act
 | `select(name, label, options, selected=None, hint=None, error=None, required=False, attrs={})` | Выбор из пар `(value, label)`. |
 | `textarea(name, label, value='', rows=4, hint=None, error=None, placeholder='', required=False, attrs={})` | Многострочный ввод с нативной проверкой обязательности. |
 | `secret_field(name, label, has_value, placeholder_hint='', clearable=False, hint=None, error=None, required=False, attrs={})` | Пустое поле замены SMTP-пароля; флажок очистки называется `<name>__clear`. |
+| `icon_button(icon, label, variant=None, compact=False, attrs={})` | Кнопка с иконкой; соседние контролы размещайте во flex-контейнере с `align-items: center; gap: .5rem` минимум, чтобы зона нажатия 44px не перекрывала их. |
 | `copy_button(target_id, label='Копировать')` | Копирование поля или текста элемента по id. |
 | `api_key_block(key, id='api-key')` | Ключ целиком в `pre` с копированием; пустой ключ не выводится. |
 | `file_picker(name, id, label, multiple=False, accept='', required=False, hint=None, error=None, attrs={})` | Настоящий file input с русскими подписями и статусом выбора. |
 | `state_marker(on, on_text='Настроено', off_text='Не настроено')` | Точка и текст состояния подключения. |
 | `status_pill(tone, label, icon=None)` | Плашка `success`, `danger`, `warning`, `partial`, `accent` или `neutral`. |
-| `settings_section(id, title, marker_on, marker_on_text='Настроено', marker_off_text='Не настроено', hint=None, action=None, section=None)` | Панель с caller; при `action` добавляет POST-форму, CSRF и скрытое поле `section` (по умолчанию id). |
+| `settings_section(id, title, marker_on, marker_on_text='Настроено', marker_off_text='Не настроено', hint=None, action=None, section=None, form_attrs={})` | Панель с caller; при `action` добавляет POST-форму, CSRF и скрытое поле `section` (по умолчанию id). |
 | `settings_actions(save_label='Сохранить', test_label=None, test_action=None)` | Сохранение и дополнительная проверка через `formaction` той же формы. |
 | `flash_stack()` | Flash-сообщения Flask; уже вызывается каркасом приложения. |
-| `banner(category, text, details=None, closable=True, inline=False)` | Уведомление с SVG и необязательными подробностями (строка или список). |
+| `banner(category, text, details=None, actions=None, closable=True, inline=False)` | Уведомление с SVG и необязательными подробностями (строка или список). |
 | `empty_state(title, text=None, icon='inbox')` | Пустое состояние; caller для действия необязателен. |
 | `modal(id, title)` | Нативный dialog с caller и кнопкой закрытия. |
 | `confirm_dialog()` | Общий диалог подтверждения; уже включён один раз в app. |
@@ -127,8 +128,8 @@ view с подчёркиванием на конце. В шаблоне `nav_act
 
 | Макрос из `list.html` | Назначение |
 | --- | --- |
-| `filter_bar(target, …)`, `search(…)`, `chips(…)`, `dropdown(…)` | Панель поиска и фильтров; содержимое панели через caller. |
-| `data_table(id, columns, …, select_name=None)`, `sort_th(…)` | Таблица с сортировкой; строки через caller. |
+| `filter_bar(target, …)`, `search(…)`, `chips(…)`, `dropdown(…)`, `input(…)` | Панель поиска и фильтров; содержимое панели через caller. |
+| `data_table(id, columns, …, select_name=None, reveal_on_filter=False)`, `sort_th(…)` | Таблица с сортировкой; строки через caller. |
 | `row_attrs(…)`, `select_cell(id, label, name=None)` | Данные строки и флажок выбора; name включает отправку id формой. |
 | `bulk_bar(target, …)`, `lazy_sentinel(target)`, `empty_row(colspan, …)` | Массовые действия, постепенное раскрытие и пустое состояние. |
 
@@ -340,7 +341,7 @@ caller содержит `li` с `list.row_attrs`. Поиск, чипы, счёт
 «по возрастанию» / «по убыванию», обновляемую при сортировке; `aria-sort` остаётся
 только у табличных заголовков. `columns` имеет тот же формат.
 Размещайте группу непосредственно перед списком либо передавайте `target=id`.
-`selectable=True` добавляет выбор всех видимых карточек без имени поля.
+`selectable=True` добавляет выбор всех подходящих карточек без имени поля.
 
 ```jinja
 {% call list.filter_bar('versions') %}
@@ -392,3 +393,172 @@ caller содержит `li` с `list.row_attrs`. Поиск, чипы, счёт
                placeholder='example.org', attrs={'data-domains': ''},
                hint='Один домен на строку', error=errors.get('domains')) }}
 ```
+
+
+## Опции index в 0.1.3
+
+Демо `/demo/list?example=index` включает пересекающиеся фильтры, теги и передачу
+состояния; `/demo/list` сохраняет прежние настройки по умолчанию.
+
+| Опция | По умолчанию | Конфигурация index |
+| --- | --- | --- |
+| `chips(..., none_value='__none__')`, `dropdown(..., none_value='__none__')` | Значение зарезервировано для пустого набора | `('__none__', 'Без тегов')`; пустая строка по-прежнему означает все строки |
+| `chips(..., count_scope=None)` | Все активные поля, кроме своей группы | `count_scope=['tag']` учитывает только тег; `[]` считает по всему списку |
+| `filter_bar(..., persist='session', persist_ttl=None)` | Сохранение при изменении, без срока | `persist='handoff', persist_ttl=300`; `persist='none'` не читает и не пишет хранилище |
+| `search(..., mode='words')` | Все слова запроса в любом порядке | `mode='substring'` ищет весь нормализованный запрос подряд |
+| `data_table(..., reveal_on_filter=False)` | Ленивый показ порциями по 50 | `True` раскрывает подходящие строки при фильтрации и сортировке |
+
+`data-filter-NAME` содержит токены через пробел; одиночные значения продолжают
+работать. Чипы и dropdown проверяют принадлежность токена, а не равенство всей
+строки. `none_value` можно заменить, если значение `__none__` занято данными.
+Серверные списки по-прежнему получают готовые результаты и счётчики от сервиса.
+Оба режима поиска приводят регистр и заменяют «ё» на «е».
+
+```jinja
+{% import 'venom_ui/list.html' as list %}
+{% call list.filter_bar('domains', persist='handoff', persist_ttl=300) %}
+  {{ list.search(mode='substring') }}
+  {{ list.chips('show', 'Показать', [('', 'Все'), ('dropped', 'Выпали'),
+      ('errors', 'Ошибки')], count_scope=['tag']) }}
+  {{ list.dropdown('tag', 'Тег', [('', 'Все теги'), ('__none__', 'Без тегов'),
+      ('1', 'Первый'), ('2', 'Второй')]) }}
+{% endcall %}
+<form method="post" action="/domains/archive">
+  {{ venom_ui.csrf() }}
+  {% call(select_name) list.data_table('domains', columns, selectable=true,
+      select_name='domain_ids', reveal_on_filter=true) %}
+  <tbody>
+    <tr {{ list.row_attrs('example.org', {'show': 'dropped errors', 'tag': '1 2'},
+        {'domain': 'example.org'}, id=42) }}>
+      {{ list.select_cell(42, 'example.org', name=select_name) }}
+      <td>example.org</td>
+    </tr>
+  </tbody>
+  {% endcall %}
+  {{ ui.btn('В архив') }}
+</form>
+{{ list.lazy_sentinel('domains') }}
+```
+
+Handoff сохраняется в `sessionStorage` при переходе по ссылке в этой вкладке или
+отправке формы, но не при каждом изменении и не при обычной перезагрузке.
+Ключ `venomlist:<pathname>#<table-id>` изолирует пути и списки. Снимок содержит
+`path`, `timestamp` (миллисекунды) и `values`; следующая загрузка того же пути
+потребляет его один раз, даже если он просрочен или URL задаёт свои фильтры.
+Для handoff `persist_ttl=None` означает 300 секунд. Явные параметры списка в URL
+имеют приоритет и не смешиваются с сохранёнными значениями.
+Снимок с меткой времени в будущем отбрасывается.
+
+«Выбрать все» теперь всегда выбирает **все подходящие строки**, включая ещё не
+показанные. Счётчик, событие `venomlist:selection` и обычная POST-форма получают
+полный набор. Отключённые флажки не выбираются; фильтрация сохраняет `checked`
+строк, которые перестали подходить, но временно делает их `disabled`: они не
+входят в счётчик, событие и POST. Сброс фильтра восстанавливает исходное состояние
+`disabled` и сохранённый выбор. Сам выбор не меняет порцию ленивого показа.
+Это второе намеренное исключение из обратной совместимости дефолтного поведения
+с v0.1.2, наряду с исправлением select-all (пункт 5 спецификации): раньше фильтр
+снимал выбор со скрытых строк, теперь временно блокирует их флажки и восстанавливает выбор.
+
+### Дополнения core
+
+`ui.settings_section(..., form_attrs={})` передаёт дополнительные атрибуты форме:
+`form_attrs={'autocomplete': 'off'}` удобно для настроек index.
+`ui.icon_button(icon, label, variant=None, compact=False, attrs={})` создаёт кнопку
+с SVG и доступным именем. Например,
+`ui.icon_button('trash', 'Удалить домен', variant='danger', compact=true,
+attrs={'data-delete': '42'})`: визуальный размер 28px, область нажатия 44px через
+псевдоэлемент, высота строки не увеличивается. По умолчанию размер 44px.
+Для соседних compact-кнопок используйте контейнер `.list-row-actions` с gap 8px:
+добавочный отступ второй кнопки 8px даёт 16px между видимыми кнопками,
+поэтому их области нажатия 44px не пересекаются.
+Шапка таблицы и `sort_control` имеют одинаковую яркую нижнюю границу внутри panel.
+Drawer игнорирует Escape с `defaultPrevented`: внутренний редактор может вызвать
+`event.preventDefault()` и оставить меню открытым.
+
+### Flash с подробностями и отменой
+
+`ui.flash_stack()` принимает строки и словари `text`, `details` (список строк),
+`actions` (список действий). Каждое действие содержит `label`, `action` (URL),
+`fields` (словарь скаляров или списков) и необязательный `variant='secondary'`
+или `'danger'`. Значения списка становятся повторяющимися hidden-полями.
+Действия — POST-формы с `venom_ui.csrf()` и стандартной кнопкой пакета.
+
+```python
+flash({'text': 'Домены отправлены в архив',
+       'details': ['one.example', 'two.example'],
+       'actions': [{'label': 'Отменить', 'action': url_for('undo_archive'),
+                    'fields': {'domain_ids': [42, 43]}, 'variant': 'secondary'}]},
+      'success')
+```
+
+`ui.banner(category, text, details=None, actions=None, closable=True, inline=False)`
+использует тот же рендерер действий. `{% call ui.banner('info', 'Готово') %}…{% endcall %}`
+добавляет произвольную разметку действий; её можно совмещать с `actions`.
+Старые позиционные аргументы `details, closable, inline` поддерживаются.
+Категории `warn`, `danger`, `message` соответствуют `warning`, `error`, `info`;
+неизвестные категории остаются `info`. Строки и поля экранируются автоматически.
+В наследнике `venom_ui/app.html` можно переопределить `{% block flash %}`.
+
+
+### Подтверждение массового действия
+
+`data-confirm="Удалить {n} {noun}?"` и
+`data-confirm-forms="домен|домена|доменов"` подставляют число выбранных строк и
+русское склонение (1 домен, 2 домена, 5/11 доменов, 21 домен).
+`window.VenomUI.pluralRu(n, one, few, many)` экспортирует тот же помощник для сервиса.
+
+```jinja
+{% call list.bulk_bar('domains') %}
+  {{ ui.btn('Удалить', variant='danger', attrs={
+      'form': 'bulk-form', 'data-confirm': 'Удалить {n} {noun}?',
+      'data-confirm-forms': 'домен|домена|доменов'}) }}
+{% endcall %}
+```
+
+Поля подтверждения можно задать форме или кнопке (кнопка имеет приоритет).
+Число берётся из `data-confirm-count`, если он указан; иначе из списка,
+заданного `data-confirm-target="domains"` / `data-target="domains"`, родительской
+bulk bar или списка. Для формы без явной связи учитываются её поля
+`data-row-select`, включая внешние поля с `form="..."` и ещё не показанные строки.
+Отключённые флажки не учитываются. Обычный текст `data-confirm` остаётся прежним.
+
+`.table-scroll` теперь имеет `position: relative`, чтобы абсолютные
+`.visually-hidden` подписи длинной таблицы оставались в её области прокрутки
+и не увеличивали высоту страницы.
+
+Статусные `.pill` сохраняют текст в одной строке (`white-space: nowrap`),
+в том числе «не проверялся» в узких таблицах.
+
+### Произвольное поле фильтра
+
+`list.input(name, label, value='', type='text', attrs={}, label_visible=False)`
+добавляет поле на общую ось поиска, чипов и dropdown. По умолчанию подпись
+доступна скринридеру; `label_visible=True` показывает её как подпись dropdown.
+`attrs` передаёт HTML-атрибуты, например `min`, `max`, `required` или `id`.
+
+```jinja
+{% call list.filter_bar('complaints', mode='server', action='/complaints') %}
+  {{ list.search() }}
+  {{ list.chips('status', 'Статус', statuses) }}
+  {{ list.dropdown('brand', 'Бренд', brands) }}
+  {{ list.input('date', 'Дата', value=request.args.get('date', ''), type='date',
+      attrs={'min': '2025-01-01'}, label_visible=true) }}
+{% endcall %}
+```
+
+В client поле фильтрует по `data-filter-<name>` с теми же правилами токенов,
+участвует в URL, persistence, count_scope и сбросе. В server изменение (`change`)
+автоматически отправляет GET-форму; обработчик сервиса фильтрует данные сам.
+Дата в client — точное совпадение токена ISO, не диапазон. Примеры:
+`/demo/list?example=input` и `/demo/list-server?example=input`.
+
+Значения `data-filter-*` с пробелами теперь трактуются как несколько токенов:
+`data-filter-tag="one two"` совпадает с фильтром `one` или `two`, но не `one two`.
+Совместимость прежнего точного сравнения гарантирована только для одного токена.
+`count_scope` принимает только список имён полей (не строку).
+`filter_bar(..., reset_keep=['example'])` сохраняет нефильтрующие GET-параметры
+при отправке и сбросе серверных фильтров. `reset_keep` принимает только список
+имён полей (не строку). `card_list(..., reveal_on_filter=True)`
+поддерживает раскрытие всех результатов по тем же правилам, что и таблица.
+Декоративный разделитель `--border-bright` над `--bg-panel` сохраняет выбранный
+контраст около 2.6:1; это не заявление о соответствии границ UI WCAG 1.4.11.

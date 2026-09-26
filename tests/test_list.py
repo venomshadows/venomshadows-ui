@@ -59,7 +59,7 @@ def test_chips_and_row_escaping(render):
 def test_table_contract(render):
     html = render(IMPORT + '{% call list.data_table("rows", columns, selectable=true, compact=true, stacked=true) %}<tbody><tr {{ list.row_attrs("a") }}><td data-label="Выбор"></td><td data-label="Домен">a</td></tr>{{ list.empty_row(2) }}</tbody>{% endcall %}', columns=[dict(key='domain', label='Домен')])
     tags = Tags(html)
-    assert tags.find('input')[0]['aria-label'] == 'Выбрать все видимые строки'
+    assert tags.find('input')[0]['aria-label'] == 'Выбрать все подходящие строки'
     assert 'data-table--stacked' in tags.find('table')[0]['class']
     assert 'data-table--compact' in tags.find('table')[0]['class']
     assert tags.find('td')[1]['data-label'] == 'Домен'

@@ -72,7 +72,7 @@ def test_detail_pairs_filter_sort_lazy(page, live_url):
     assert page.locator('#detail-3').is_hidden()
     assert page.locator('#detail-3-extra').is_hidden()
     page.locator('[data-list-reset]').click()
-    page.locator('[data-reveal-more]').click()
+    page.locator('[data-reveal-more]').evaluate('el => el.click()')
     assert page.locator('[data-row]:visible').count() >= 100
     assert page.locator('#detail-3').is_hidden()
 
@@ -136,7 +136,8 @@ def test_arbitrary_body_lazy_refresh(page, live_url):
       VenomList.init(wrapper);
     }''')
     assert page.locator('#custom [data-row]:visible').count() == 50
-    page.locator('[data-lazy-sentinel][data-target="custom"] [data-reveal-more]').click()
+    # Прокрутка к кнопке сама запускает observer; здесь проверяем ручной показ.
+    page.locator('[data-lazy-sentinel][data-target="custom"] [data-reveal-more]').evaluate('el => el.click()')
     assert page.locator('#custom [data-row]:visible').count() >= 100
     page.locator('#custom').evaluate('''el => {
       const row = el.querySelector('[data-row]').cloneNode(true);
