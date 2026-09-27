@@ -23,10 +23,11 @@ from flask import Blueprint, Flask, has_request_context, request, url_for
 from markupsafe import Markup
 
 from .icons import icon
+from .timefmt import dt_full, rel_time
 
 __all__ = ["NavItem", "VenomUI", "__version__"]
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 EXTENSION_KEY = "venom_ui"
 
@@ -136,4 +137,6 @@ class VenomUI:
         # «with context» и видят только глобалы окружения Jinja.
         app.add_template_global(context, EXTENSION_KEY)
         app.add_template_global(icon, "venom_icon")
+        app.add_template_filter(rel_time, "venom_rel_time")
+        app.add_template_filter(dt_full, "venom_dt_full")
         return context

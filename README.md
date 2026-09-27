@@ -12,7 +12,7 @@ SVG-иконки, каркасы Jinja, формы, уведомления и п
 ```toml
 [project]
 dependencies = [
-  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.3",
+  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.4",
 ]
 ```
 
@@ -51,7 +51,7 @@ view с подчёркиванием на конце. В шаблоне `nav_act
 Логотип берётся из `static` приложения. Там же должны находиться
 `favicon/favicon-32.png`, `favicon/favicon-16.png`, `favicon/apple-touch-icon.png`.
 Статика пакета доступна через `venom_ui.static('ui.css')`, обычно по `/_ui/`.
-Порядок стилей: `tokens.css`, `ui.css`, `list.css`, затем блок `head` сервиса.
+Порядок стилей: `tokens.css`, `ui.css`, `list.css`, `dashboard.css`, затем блок `head` сервиса.
 Скрипты `ui.js` и `list.js` подключены с `defer`; код страницы размещайте
 в отдельном скрипте с `defer` через блок `scripts`.
 
@@ -283,6 +283,139 @@ collapsible=True оборачивает ту же группу в details.checkb
 Без JS работает обычный details. Панель открывается вверх, прокручивается
 при высоте более 50vh и подходит для нижней .bulk-bar.
 Поля с подписью и кнопки в bulk-bar выравниваются по нижнему краю.
+
+## Обзор (dashboard)
+
+`base.html` подключает `dashboard.css` после `list.css`. Макросы импортируются
+без контекста; данные и URL подготавливает сервис. Полный пример маршрута
+для приложения с уже подключённым `VenomUI`:
+
+```python
+from datetime import date, datetime, timedelta, timezone
+from flask import render_template
+from venomshadows_ui.charts import line_chart
+
+@app.get('/dashboard')
+def dashboard():
+    today = date.today()
+    rows = [dict(day=today - timedelta(days=29-i), found=100+i, clean=200-i)
+            for i in range(30)]
+    events = [dict(main='example.org', pill_tone='success',
+                   pill_label='Проверен', at=datetime.now(timezone.utc))]
+    return render_template('dashboard.html',
+        chart=line_chart(rows, [('found', 'Найдены'), ('clean', 'Чистые')],
+                         label_key='day'), events=events)
+```
+
+Шаблон `dashboard.html`:
+
+```jinja
+{% extends 'venom_ui/app.html' %}
+{% import 'venom_ui/macros.html' as ui %}
+{% import 'venom_ui/dashboard.html' as dash %}
+{% block content %}
+<div class="page">
+  {{ ui.page_header('Обзор') }}
+  {% call dash.stats('Состояние сейчас') %}
+    {{ dash.stat(300, 'Активных доменов', '/domains') }}
+    {{ dash.stat(129, 'Найдены', '/domains?show=found', 'danger', 'alert-triangle') }}
+  {% endcall %}
+  {% call dash.panel('daily', 'Доменов по дням', hint='за 30 дн.') %}
+    {{ dash.chart(chart, 'Количество на конец дня',
+                  [('label', 'День'), ('found', 'Найдены'), ('clean', 'Чистые')]) }}
+  {% endcall %}
+  {% call dash.grid() %}
+    {% call dash.main() %}
+      {% call dash.panel('events', 'Последние изменения') %}
+        {{ dash.feed(events, 8, 'Изменений пока не было.') }}
+      {% endcall %}
+    {% endcall %}
+    {% call dash.side() %}
+      {% call dash.panel('errors', 'Ошибки') %}
+        {{ dash.side_list([], 5, 'Ошибок нет.') }}
+      {% endcall %}
+    {% endcall %}
+  {% endcall %}
+</div>
+{% endblock %}
+```
+
+`line_chart(rows, series, *, label_key='label', summary=None, band_title=None)` принимает
+хронологический список словарей и пары `(key, label)`. Значения — конечные
+неотрицательные числа (не bool); ноль считается наблюдением. Строка, где все
+серии равны `None`, означает отсутствие наблюдения. Начальные такие строки
+сохраняют полную ось X и её недельные отметки; линии, области, подсказки и
+таблица начинаются с первого наблюдения, подпись сообщает длину всего окна.
+При менее двух наблюдений или пустом списке серий возвращается `None`.
+Пропущенный ключ или недопустимое значение (включая `None` после первого
+наблюдения) вызывает `ValueError` с именем ключа. Даты `date`/`datetime` и строки,
+точно соответствующие `\d{4}-\d{2}-\d{2}` (`YYYY-MM-DD`), форматируются как
+`ДД.ММ`; остальные строковые подписи сохраняются. Исходные
+строки не меняются. `rows` результата — поверхностные копии (вложенные
+значения общие); ключ `label` зарезервирован и заменяется готовой подписью.
+Результат содержит `series` (key, label, line, area, last,
+color), `y_ticks`, `x_ticks` (pos, label, edge, minor), `bands`, `rows` и
+`summary`. Автоматическую подпись SVG можно заменить аргументом `summary`.
+`band_title=None` оставляет подсказки дней в формате «ДД.ММ. Серия: N, …»;
+функция `band_title(row) -> str` заменяет весь текст подсказки и получает
+исходную строку каждого наблюдённого дня, включая дополнительные поля сервиса.
+Четыре токена `--color-series-1..4` назначаются по порядку серий циклически;
+первые два сохраняют цвета Яндекс/ЕАИС и Google/Blocklist из сервисов.
+`--color-chart-grid` задаёт цвет сетки, `--color-chart-base` — нулевой линии.
+Высота графика задаётся `--chart-h` и `--chart-h-small` для узкого экрана,
+ширина оси — `--chart-axis-w`, минимальная ширина метрик — `--stat-min-w`.
+Колонки таблицы — пары `(key, header)`, включая `('label', 'День')`;
+первый столбец является заголовком строки. Таблица показывает новые дни сверху.
+
+`dash.stats(label, id='dash-stats')` создаёт скрытый заголовок второго уровня;
+для нескольких блоков метрик передайте разные `id`.
+`dash.stat` поддерживает тона `ok`, `danger`, `warn`, `muted`, SVG `icon` и
+`note`. `dash.panel(id, title, hint=None, count=None, count_tone='neutral')`
+использует уникальный на странице `id`; тона счётчика совпадают с `status_pill`.
+Нулевой счётчик скрыт; пустой `pill_label` в ленте не создаёт бейдж.
+`dash.grid`, `dash.main`, `dash.side` принимают caller и создают соответственно
+`dash-grid`, `dash-grid__main`, `dash-grid__side`.
+
+`dash.feed(items, visible, empty_text)` принимает словари с `main`,
+`pill_tone`, `pill_label`, `at`. Для собственного содержимого используйте
+`{% call(item) dash.feed(events, 8, 'Пусто') %}...{% endcall %}`:
+caller возвращает целый `<li class="hfeed__item">` или вызов
+`dash.feed_item(main, pill_tone, pill_label, at)`. `main` экранируется;
+ссылку можно передать как результат собственного Jinja-макроса.
+
+`dash.side_list(items, visible, empty_text, ok_empty=True, more_href=None)`
+принимает `main` и необязательные `href`, `note`, `at`; caller также может
+вернуть целый `<li class="hdrops__item">`. `more_href` заменяет раскрытие
+ссылкой «Все (N)» при наличии скрытых строк. `visible` ограничивается снизу
+единицей. `ok_empty=False` убирает зелёную иконку пустого состояния.
+
+`dash.when(at)` выводит `<time>` с полной датой в title. `VenomUI` регистрирует
+фильтры `venom_rel_time` и `venom_dt_full`: ISO-строки и datetime,
+московская зона отображения, наивные даты считаются московскими. Пустое
+значение даёт «—», некорректная строка выводится экранированной как есть.
+
+### Миграция index/rkn
+
+Локальные `stat`/hstats → `dash.stats` + `dash.stat`,
+панели → `dash.panel`, график и таблица → `dash.chart`, лента → `dash.feed`,
+выпадения/блокировки/ошибки → `dash.side_list`, `when` → `dash.when`.
+`index_chart`/`chart`, `_nice_step`, `_day_label` заменяются `line_chart`:
+index предварительно переносит вложенные `row[source].indexed` в плоские
+поля и сохраняет строки `day` в формате `YYYY-MM-DD`; rkn передаёт
+`eais`/`blocklist`. index/rkn передают `band_title`, чтобы сохранить подсказки
+с долями и общим количеством из своих дополнительных полей строки.
+В начальные дни без наблюдений сервис
+записывает `None` во все серии, сохраняя строки полного окна (наблюдённые
+нули остаются нулями). Текст пустого графика унифицирован:
+«Истории пока мало — данные накопятся после проверок.» (в index было «после обходов»).
+Удалите только dashboard-правила из локального CSS; карточки домена,
+timeline, полосы истории,
+агрегация `daily_counts` и специальные панели провайдеров остаются локальными.
+Классы `.hmuted`, `.hsource`, `.hchange*`, `.dash-sweep*` остаются в сервисах.
+Старые даты теперь видны как «22 сент.» (с годом для другого года), вместо
+«22.09 в 18:00»; полная дата и время доступны в title.
+Витрина: `/demo/dashboard` (30 дней, 3 серии, 6 метрик, 25 событий);
+`/demo/dashboard?young=1` показывает 12 наблюдений в полном 30-дневном окне.
 
 ## Заголовок таблицы на телефоне
 

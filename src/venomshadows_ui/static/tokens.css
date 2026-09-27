@@ -156,3 +156,22 @@
   --logo-h: 5rem;                       /* логотип в шапке; ≤480px — --logo-h-small */
   --logo-h-small: 3.5rem;
 }
+
+:root {
+  /* Первые две серии сохраняют цвета Яндекса/ЕАИС и Google/Blocklist. */
+  --color-series-1: color-mix(in srgb, var(--color-accent-text) 60%, var(--color-danger-text));
+  --color-series-2: var(--color-accent);
+  /* Дополнительные ряды различимы на общей тёмной подложке. */
+  --color-series-3: var(--color-success-text);
+  --color-series-4: var(--color-warning-text);
+  --color-chart-grid: color-mix(in srgb, var(--color-text-secondary) 18%, transparent);
+  --color-chart-base: color-mix(in srgb, var(--color-text-secondary) 40%, transparent);
+  /* Общая минимальная ширина сохраняет плотность ряда метрик. */
+  --stat-min-w: 160px;
+  /* Высота графика меняется на телефоне, не меняя геометрию SVG. */
+  --chart-h: 220px;
+  /* На узком экране оставляем больше места ленте под графиком. */
+  --chart-h-small: 180px;
+  /* Одинаковый отступ осей сохраняет совпадение дат и точек графика. */
+  --chart-axis-w: 2.25rem;
+}

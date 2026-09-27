@@ -13,6 +13,7 @@ from jinja2 import TemplateNotFound
 from markupsafe import Markup
 
 from venomshadows_ui import NavItem, VenomUI
+from demo_dashboard import register_dashboard
 
 HERE = Path(__file__).resolve().parent
 CSRF_FIELD = '<input type="hidden" name="csrf_token" value="demo-token">'
@@ -32,6 +33,8 @@ def create_app() -> Flask:
             return render_template(f"demo/{name}.html")
         except TemplateNotFound:
             abort(404)
+
+    register_dashboard(app)
 
     @app.get("/settings")
     def settings_page():

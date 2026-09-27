@@ -1,0 +1,29 @@
+{% extends "venom_ui/app.html" %}
+{% import "venom_ui/macros.html" as ui %}
+{% import "venom_ui/dashboard.html" as dash %}
+{% block title %}Обзор{% endblock %}
+{% block content %}
+<div class="page">
+  {{ ui.page_header('Обзор', lead='Состояние доменов и последние изменения.') }}
+  {% call dash.stats('Состояние сейчас') %}
+    {{ dash.stat(320, 'Активных доменов', '/demo/list') }}
+    {{ dash.stat(269, 'В индексе Яндекса', '/demo/list?yandex=indexed', 'ok', 'check', 'из 310 проверяемых') }}
+    {{ dash.stat(254, 'В индексе Google', '/demo/list?google=indexed', 'ok', 'check', 'из 310 проверяемых') }}
+    {{ dash.stat(41, 'Не в индексе', '/demo/list?show=not-indexed', 'danger', 'x', 'хотя бы в одном поисковике') }}
+    {{ dash.stat(8, 'С ошибкой', '/demo/list?show=errors', 'warn', 'alert-circle', 'последняя проверка не удалась') }}
+    {{ dash.stat(10, 'Ожидают проверки', '/demo/list?show=pending', 'muted', 'refresh', 'ещё не проверялись') }}
+  {% endcall %}
+  {% call dash.panel('chart', 'Доменов по дням', 'за 30 дн.') %}
+    {{ dash.chart(chart, 'Доменов на конец дня', [('label', 'День'), ('yandex', 'Яндекс'), ('google', 'Google'), ('clean', 'Без блокировок')]) }}
+  {% endcall %}
+  {% call dash.grid() %}
+    {% call dash.main() %}
+      {% call dash.panel('events', 'Последние изменения') %}{{ dash.feed(events, 8, 'Изменений пока не было.') }}{% endcall %}
+    {% endcall %}
+    {% call dash.side() %}
+      {% call dash.panel('blocks', 'Новые блокировки', count=7, count_tone='danger') %}{{ dash.side_list(blocks, 4, 'Новых блокировок не было.') }}{% endcall %}
+      {% call dash.panel('errors', 'Ошибки проверок') %}{{ dash.side_list([], 4, 'Ошибок нет.') }}{% endcall %}
+    {% endcall %}
+  {% endcall %}
+</div>
+{% endblock %}

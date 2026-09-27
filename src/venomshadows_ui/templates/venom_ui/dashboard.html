@@ -1,0 +1,122 @@
+{% import "venom_ui/macros.html" as ui %}
+{% macro stats(label, id='dash-stats') %}
+<section aria-labelledby="{{ id }}-title">
+  <h2 id="{{ id }}-title" class="visually-hidden">{{ label }}</h2>
+  <ul class="hstats">{{ caller() }}</ul>
+</section>
+{% endmacro %}
+
+{# Цвет — только у значка: число и подпись остаются одинаково читаемыми. #}
+{% macro stat(value, label, href, tone="", icon="", note="") -%}
+  <li>
+    <a class="hstat{{ ' hstat--' ~ tone if tone }}" href="{{ href }}">
+      <span class="hstat__label">{% if icon %}<span class="hstat__icon" aria-hidden="true">{{ ui.icon(icon) }}</span>{% endif %}{{ label }}</span>
+      <span class="hstat__value">{{ value }}</span>
+      {%- if note %}<span class="hstat__note">{{ note }}</span>{% endif %}
+    </a>
+  </li>
+{%- endmacro %}
+
+{% macro panel(id, title, hint=None, count=None, count_tone='neutral') %}
+<section class="panel dash-panel" aria-labelledby="{{ id }}-title">
+  <div class="dash-panel__head">
+    <h2 class="dash-panel__title" id="{{ id }}-title">{{ title }}</h2>
+    {% if hint is not none %}<span class="dash-panel__hint">{{ hint }}</span>{% endif %}
+    {% if count %}{{ ui.status_pill(count_tone, count) }}{% endif %}
+  </div>
+  {{ caller() }}
+</section>
+{% endmacro %}
+
+{% macro grid() %}<div class="dash-grid">{{ caller() }}</div>{% endmacro %}
+{% macro main() %}<div class="dash-grid__main">{{ caller() }}</div>{% endmacro %}
+{% macro side() %}<div class="dash-grid__side">{{ caller() }}</div>{% endmacro %}
+
+{%- macro when(at) -%}
+{% if at %}<time datetime="{{ at.isoformat() if at.isoformat is defined else at }}" title="{{ at | venom_dt_full }}">{{ at | venom_rel_time }}</time>{% else %}—{% endif %}
+{%- endmacro %}
+
+{% macro feed_item(main, pill_tone, pill_label, at) %}
+<li class="hfeed__item"><div class="hfeed__main">{{ main }}</div>{% if pill_label %}{{ ui.status_pill(pill_tone, pill_label) }}{% endif %}<div class="hfeed__meta">{{ when(at) }}</div></li>
+{% endmacro %}
+
+{# Общая разбивка сохраняет порядок и нативное раскрытие без JavaScript. #}
+{% macro _items(items, visible, class_, more_href=None) %}
+{% set visible = [visible | int, 1] | max %}
+<ul class="{{ class_ }}">{% for item in items[:visible] %}{{ caller(item) }}{% endfor %}</ul>
+{% if items | length > visible %}
+  {% if more_href %}<a class="dash-more-link" href="{{ more_href }}">Все ({{ items | length }})</a>
+  {% else %}<details class="hmore"><summary>Показать ещё {{ items | length - visible }}</summary><ul class="{{ class_ }}">{% for item in items[visible:] %}{{ caller(item) }}{% endfor %}</ul></details>{% endif %}
+{% endif %}
+{% endmacro %}
+
+{% macro feed(items, visible, empty_text) %}
+{% set slot = caller if caller is defined else none %}
+{% if items %}
+  {% call(item) _items(items, visible, 'hfeed') %}
+    {% if slot %}{{ slot(item) }}{% else %}{{ feed_item(item.main, item.pill_tone, item.pill_label, item.at) }}{% endif %}
+  {% endcall %}
+{% else %}<p class="hempty">{{ empty_text }}</p>{% endif %}
+{% endmacro %}
+
+{% macro side_list(items, visible, empty_text, ok_empty=True, more_href=None) %}
+{% set slot = caller if caller is defined else none %}
+{% if items %}
+  {% call(item) _items(items, visible, 'hdrops', more_href) %}
+    {% if slot %}{{ slot(item) }}{% else %}
+    <li class="hdrops__item">
+      {% if item.href %}<a class="hdomain" href="{{ item.href }}">{{ item.main }}</a>{% else %}<span>{{ item.main }}</span>{% endif %}
+      <span class="hdrops__meta">{{ item.note }}{% if item.note and item.at %} <span aria-hidden="true">·</span> {% endif %}{% if item.at %}{{ when(item.at) }}{% endif %}</span>
+    </li>
+    {% endif %}
+  {% endcall %}
+{% else %}<p class="hempty{{ ' hempty--ok' if ok_empty }}">{% if ok_empty %}<span aria-hidden="true">{{ ui.icon('check') }}</span> {% endif %}{{ empty_text }}</p>{% endif %}
+{% endmacro %}
+{% macro chart(chart, table_caption, columns) %}
+      {%- if chart %}
+        <ul class="hlegend" aria-label="Легенда">
+          {%- for s in chart.series %}
+            <li class="hlegend__item"><span class="hlegend__key dash-series-{{ s.color }}" aria-hidden="true"></span>{{ s.label }}<span class="hlegend__value">сейчас {{ s.last }}</span></li>
+          {%- endfor %}
+        </ul>
+        <figure class="hchart">
+          <div class="hchart__plot">
+            {%- for t in chart.y_ticks %}
+              <span class="hchart__y" style="top: {{ t.pos }}%" aria-hidden="true">{{ t.value }}</span>
+            {%- endfor %}
+            <svg class="hchart__svg" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="{{ chart.summary }}">
+              {%- for t in chart.y_ticks %}
+                <line class="hchart__grid{{ ' hchart__grid--base' if t.value == 0 }}" x1="0" x2="100" y1="{{ t.pos }}" y2="{{ t.pos }}" vector-effect="non-scaling-stroke"/>
+              {%- endfor %}
+              {%- for s in chart.series %}
+                <path class="hchart__area dash-series-{{ s.color }}" d="{{ s.area }}"/>
+              {%- endfor %}
+              {%- for s in chart.series %}
+                <path class="hchart__line dash-series-{{ s.color }}" d="{{ s.line }}" vector-effect="non-scaling-stroke"/>
+              {%- endfor %}
+              {# Полосы дней дают подсветку при наведении и общую подсказку серий. #}
+              {%- for b in chart.bands %}
+                <rect class="hchart__band" x="{{ b.x }}" y="0" width="{{ b.width }}" height="100"><title>{{ b.title }}</title></rect>
+              {%- endfor %}
+            </svg>
+          </div>
+          <div class="hchart__x" aria-hidden="true">
+            {%- for t in chart.x_ticks %}
+              <span class="hchart__xlabel{{ ' hchart__xlabel--' ~ t.edge if t.edge }}{{ ' hchart__xlabel--minor' if t.minor }}" style="left: {{ t.pos }}%">{{ t.label }}</span>
+            {%- endfor %}
+          </div>
+        </figure>
+        <details class="hdata">
+          <summary>Таблица данных</summary>
+          <div class="table-scroll">
+            <table class="hdata__table">
+              <caption class="visually-hidden">{{ table_caption }}</caption>
+              <thead><tr>{% for key, header in columns %}<th scope="col">{{ header }}</th>{% endfor %}</tr></thead>
+              <tbody>{% for row in chart.rows | reverse %}<tr>{% for key, header in columns %}{% if loop.first %}<th scope="row">{{ row[key] }}</th>{% else %}<td>{{ row[key] }}</td>{% endif %}{% endfor %}</tr>{% endfor %}</tbody>
+            </table>
+          </div>
+        </details>
+      {%- else %}
+        <p class="hempty">Истории пока мало — данные накопятся после проверок.</p>
+      {%- endif %}
+{% endmacro %}
