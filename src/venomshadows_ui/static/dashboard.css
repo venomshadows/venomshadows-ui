@@ -229,7 +229,7 @@
   display: inline-flex;
   align-items: center;
   min-height: var(--tap);
-  color: var(--color-text-secondary);
+  color: var(--color-accent-text);
   cursor: pointer;
 }
 .hdata summary:hover,
@@ -381,3 +381,11 @@
 .dash-series-4 {
   --series: var(--color-series-4);
 }
+
+.hmore summary, .dash-more-link, .hdata summary {
+  color: var(--color-accent-text); cursor: pointer; min-height: var(--tap); display: inline-flex; align-items: center; gap: .35rem;
+}
+.hmore summary:hover, .dash-more-link:hover, .hmore__summary:hover { text-decoration: underline; }
+.hmore__summary .icon { transition: transform .15s; }
+details[open] > .hmore__summary .icon { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .hmore__summary .icon { transition: none; } }

@@ -4,13 +4,14 @@
 {% block content %}
 <div class="page">
   {{ ui.page_header('Настройки', lead='Подключения и ключи доступа. Каждая секция сохраняется отдельно.') }}
+  {{ ui.settings_toc([('email', 'Email'), ('telegram', 'Telegram'), ('brand', 'Brand'), ('site', 'Ключ сайта'), ('about', 'Сведения')]) }}
   <div class="settings-stack">
     {% call ui.settings_section('email', 'Email', true, hint='Почта для уведомлений о результатах проверок.', action='/settings', section='email') %}
       <div class="field-grid">
         {{ ui.field('smtp_host', 'SMTP-сервер', 'smtp.example.com') }}
         {{ ui.field('smtp_port', 'Порт', '587', type='number') }}
         {{ ui.field('smtp_user', 'Логин', 'notify@example.com') }}
-        {{ ui.secret_field('smtp_password', 'Пароль SMTP', true, clearable=true) }}
+        {{ ui.secret_field('smtp_password', 'Пароль SMTP', true, clearable=true, reveal=true) }}
         {{ ui.field('email_to', 'Получатель', 'admin@example.com', type='email') }}
         {{ ui.select('smtp_security', 'Защита соединения', [('starttls', 'STARTTLS'), ('ssl', 'SSL/TLS')], 'starttls') }}
       </div>
@@ -34,6 +35,7 @@
         {{ ui.btn('Отозвать', 'danger', icon='trash', attrs={'name': 'operation', 'value': 'revoke', 'data-confirm': 'Отозвать API-ключ сайта?', 'data-confirm-danger': '', 'data-confirm-ok': 'Отозвать', 'data-busy-label': 'Отзывается…'}) }}
       </div>
     {% endcall %}
+    {% call ui.settings_section('about', 'Сведения', none, no_marker=true) %}{{ ui.kv_list([('Версия', '0.1.5')]) }}{% endcall %}
   </div>
 </div>
 {% endblock %}

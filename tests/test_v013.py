@@ -85,7 +85,7 @@ def test_index_tokens_counts_search_reveal(page, live_url, screenshot):
     page.locator('[data-list-reset]').click()
     screenshot(page, 'index-options')
     index_page(page, live_url)
-    page.locator('[data-sort-key=number]').click()
+    page.locator('[data-sort-key=number]:visible').click()
     assert page.locator('[data-row]:visible').count() == 180
     page.reload()
     assert page.locator('[data-row]:visible').count() == 180
@@ -98,7 +98,7 @@ def test_bulk_post_all_matching_180(page, live_url, filtered):
         page.locator('select[name=brand]').select_option('alpha')
     expected = [str(i) for i in range(1, 181) if not filtered or i % 3 == 0]
     assert page.locator('[data-row]:visible').count() == 50
-    page.locator('[data-select-all]').check()
+    page.locator('[data-select-all]:visible').check()
     assert page.locator('[data-selection-count]').inner_text() == str(len(expected))
     with page.expect_response('**/demo/list-selection') as response:
         page.locator('[data-submit-selection]').click()
@@ -254,10 +254,10 @@ def test_default_sort_and_refresh_keep_lazy_limit(page, live_url):
     assert page.locator('[data-row]:visible').count() == 50
     page.locator('[data-list]').dispatch_event('venomlist:refresh')
     assert page.locator('[data-row]:visible').count() == 50
-    page.locator('[data-sort-key=number]').click()
+    page.locator('[data-sort-key=number]:visible').click()
     assert page.locator('[data-row]:visible').count() == 180
     page.locator('[data-list-search]').fill('domain-12')
-    page.locator('[data-sort-key=number]').click()
+    page.locator('[data-sort-key=number]:visible').click()
     page.locator('[data-list-reset]').click()
     assert page.locator('[data-row]:visible').count() == 50
 
@@ -357,7 +357,7 @@ def test_confirmation_plural(page, live_url, count, noun, explicit):
 
 def test_confirmation_form_counts_unrevealed_selection(page, live_url):
     page.goto(live_url + '/demo/list')
-    page.locator('[data-select-all]').check()
+    page.locator('[data-select-all]:visible').check()
     page.locator('[data-submit-selection]').evaluate('''button => {
       button.form.dataset.confirm = 'Удалить {n} {noun}?';
       button.form.dataset.confirmForms = 'домен|домена|доменов';

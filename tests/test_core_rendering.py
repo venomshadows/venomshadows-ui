@@ -162,8 +162,9 @@ def test_sidebar_is_optional(client):
 def test_settings_have_independent_forms(client):
     dom = tree(client.get('/demo/settings').get_data(as_text=True))
     sections = [node for node in dom.find('section') if node.has_class('settings-section')]
-    assert len(sections) == 4
-    for section in sections:
+    assert len(sections) == 5
+    assert not sections[-1].find('form')
+    for section in sections[:-1]:
         forms = section.find('form')
         assert len(forms) == 1
         form = forms[0]

@@ -149,12 +149,14 @@
 
 {# SMTP-пароль только заменяется; placeholder_hint сохраняет прежнее имя параметра.
    required=True требует замену даже при сохранённом пароле: выбирает сервис. #}
-{% macro secret_field(name, label, has_value, placeholder_hint='', clearable=False, hint=None, error=None, required=False, attrs={}) -%}
+{% macro secret_field(name, label, has_value, placeholder_hint='', clearable=False, hint=None, error=None, required=False, attrs={}, reveal=False, clear_label='Очистить', placeholder_unset=None) -%}
 {% set placeholder_hint = placeholder_hint if placeholder_hint is not none else '' %}
 {% set hint = hint if hint is not none else ('Оставьте пустым, чтобы сохранить пароль.' if has_value else none) %}
-{% call(control) _field_shell(attrs.get('id', name), label, hint, error, attrs, required, placeholder_hint or ('•••••• (сохранён)' if has_value else '')) %}
+{% call(control) _field_shell(attrs.get('id', name), label, hint, error, attrs, required, placeholder_hint or ('•••••• (сохранён)' if has_value else (placeholder_unset or ''))) %}
+{% if reveal %}<div class="secret-field">{% endif -%}
 <input name="{{ name }}" type="password" value="" autocomplete="new-password"{{ control|xmlattr }}>
-{% if has_value and clearable %}<label class="checkbox-row"><input type="checkbox" name="{{ name }}__clear" id="{{ name }}__clear" value="1"><span>Очистить</span></label>{% endif %}
+{%- if reveal %}<button type="button" class="icon-btn icon-btn--compact secret-field__reveal" data-secret-reveal aria-pressed="false" aria-label="Показать" aria-controls="{{ control.id }}"><span data-secret-eye>{{ icon('eye') }}</span><span data-secret-eye-off hidden>{{ icon('eye-off') }}</span></button></div>{% endif %}
+{% if has_value and clearable %}<label class="checkbox-row{% if reveal %} secret-field__clear{% endif %}"><input type="checkbox" name="{{ name }}__clear" id="{{ name }}__clear" value="1"><span>{{ clear_label }}</span></label>{% endif %}
 {% endcall %}
 {%- endmacro %}
 
@@ -194,9 +196,9 @@
 {%- endmacro %}
 
 {# Каждая секция сохраняется своей формой, без вложенных форм. #}
-{% macro settings_section(id, title, marker_on, marker_on_text='Настроено', marker_off_text='Не настроено', hint=None, action=None, section=None, form_attrs={}) -%}
+{% macro settings_section(id, title, marker_on, marker_on_text='Настроено', marker_off_text='Не настроено', hint=None, action=None, section=None, form_attrs={}, no_marker=False) -%}
 <section class="panel settings-section" id="settings-{{ id }}" aria-labelledby="{{ id }}-title">
-  <div class="settings-section__head"><h2 id="{{ id }}-title">{{ title }}</h2>{{ state_marker(marker_on, marker_on_text, marker_off_text) }}</div>
+  <div class="settings-section__head"><h2 id="{{ id }}-title">{{ title }}</h2>{% if not no_marker %}{{ state_marker(marker_on, marker_on_text, marker_off_text) }}{% endif %}</div>
   {% if hint %}<p class="settings-section__hint">{{ hint }}</p>{% endif %}
   {% if action %}<form method="post" action="{{ action }}"{{ form_attrs|xmlattr }}>{{ venom_ui.csrf() }}<input type="hidden" name="section" value="{{ section if section is not none else id }}">{{ caller() }}</form>{% else %}{{ caller() }}{% endif %}
 </section>
@@ -247,8 +249,8 @@
 {%- endmacro %}
 
 {# Пустой экран объясняет следующий шаг; действие задаёт вызывающий шаблон. #}
-{% macro empty_state(title, text=None, icon='inbox') -%}
-<div class="empty-state">{{ _icon(icon, 'empty-state__icon') }}<h2>{{ title }}</h2>{% if text %}<p>{{ text }}</p>{% endif %}{% if caller is defined %}<div class="empty-state__actions">{{ caller() }}</div>{% endif %}</div>
+{% macro empty_state(title, text=None, icon='inbox', sidebar=False, text_mobile=None, sidebar_label='Открыть меню') -%}
+<div class="empty-state{% if sidebar %} empty-state--sidebar{% endif %}">{{ _icon(icon, 'empty-state__icon') }}<h2>{{ title }}</h2>{% if sidebar %}{% if text %}<p class="empty-state__text--desktop">{{ text }}</p>{% endif %}{% if text_mobile or text %}<p class="empty-state__text--mobile">{{ text_mobile or text }}</p>{% endif %}<div class="empty-state__action-sidebar">{{ btn(sidebar_label, 'secondary', type='button', icon='menu', attrs={'data-sidebar-toggle': ''}) }}</div>{% elif text %}<p>{{ text }}</p>{% endif %}{% if caller is defined %}<div class="empty-state__actions">{{ caller() }}</div>{% endif %}</div>
 {%- endmacro %}
 
 {# Нативный dialog удерживает фокус и обрабатывает Escape. #}
@@ -268,4 +270,24 @@
 {% macro auth_steps(current, total, labels) -%}
 {% set labels = labels or [] %}
 <ol class="auth__steps" aria-label="Этапы входа">{% for step in range(1, total + 1) %}<li class="auth__step{{ ' auth__step--done' if step < current }}{{ ' auth__step--current' if step == current }}"{% if step == current %} aria-current="step"{% endif %}><span class="auth__step-number">{% if step < current %}{{ icon('check') }}{% else %}{{ step }}{% endif %}</span><span class="visually-hidden">{{ labels[step - 1] if step <= labels|length else step }}</span>{% if not loop.last %}<span class="auth__step-line" aria-hidden="true"></span>{% endif %}</li>{% endfor %}</ol>
+{%- endmacro %}
+
+{% macro settings_toc(sections, label='Разделы настроек') -%}
+<nav class="settings-toc" aria-label="{{ label }}">{% for section in sections %}<a class="chip" href="#settings-{{ section.id if section is mapping else section[0] }}">{{ section.title if section is mapping else section[1] }}</a>{% endfor %}</nav>
+{%- endmacro %}
+
+{% macro status_dot(tone, label) -%}
+<span class="status-dot status-dot--{{ tone if tone in ('ok', 'warning', 'danger', 'neutral') else 'neutral' }}" role="img" aria-label="{{ label }}" title="{{ label }}"></span>
+{%- endmacro %}
+
+{% macro external_link(href, label, class_='') -%}
+<a class="link link--external{% if class_ %} {{ class_ }}{% endif %}" href="{{ venom_ui.safe_external_url(href) }}" target="_blank" rel="noopener" aria-label="{{ label }} (откроется в новой вкладке)">{{ label }}{{ icon('external-link') }}</a>
+{%- endmacro %}
+
+{% macro kv_item(term, value=None) -%}
+<dt>{{ term }}</dt><dd>{{ caller() if caller is defined else (value if value is not none else '—') }}</dd>
+{%- endmacro %}
+{% set item = kv_item %}
+{% macro kv_list(items=(), label=None) -%}
+<dl class="kv-list"{% if label %} aria-label="{{ label }}"{% endif %}>{% for term, value in items %}{{ kv_item(term, value) }}{% endfor %}{% if caller is defined %}{{ caller() }}{% endif %}</dl>
 {%- endmacro %}

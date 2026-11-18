@@ -6,9 +6,9 @@
 {%- endmacro %}
 
 {# Панель объединяет фильтры; сервер сам передаёт достоверные счётчики. #}
-{% macro filter_bar(target, mode='client', action=None, total=None, shown=None, label=None, persist='session', persist_ttl=None, reset_keep=()) -%}
+{% macro filter_bar(target, mode='client', action=None, total=None, shown=None, label=None, persist='session', persist_ttl=None, reset_keep=(), count='always', count_format=None) -%}
 {% set reset_keep = [reset_keep] if reset_keep is string else (reset_keep or []) %}
-<form class="filter-bar" role="search" aria-label="Фильтры{% if label %}: {{ label }}{% endif %}" data-filter-bar
+<form class="filter-bar" role="search" aria-label="Фильтры{% if label %}: {{ label }}{% endif %}" data-filter-bar{% if count != 'always' %} data-count="{{ count }}"{% endif %}
       data-target="{{ target }}" data-mode="{{ mode }}" data-persist="{{ persist }}"{% if persist_ttl is not none %} data-persist-ttl="{{ persist_ttl }}"{% endif %}
       {%- if mode == 'server' %} method="get"{% if action %} action="{{ action }}"{% endif %}{% endif %}>
   {%- if mode == 'server' %}
@@ -19,8 +19,8 @@
     {%- endfor %}
   {%- endif %}
   {{ caller() }}
-  <span class="filter-bar__count" data-list-count role="status" aria-live="polite">
-    {%- if total is not none %}{{ shown if shown is not none else total }} из {{ total }}{% endif -%}
+  <span class="filter-bar__count" data-list-count{% if count_format %} data-count-format="{{ count_format }}"{% endif %}{% if count == 'none' or (count == 'auto' and (shown is none or shown == total)) %} hidden{% endif %} role="status" aria-live="polite">
+    {%- if total is not none %}{{ 'показано ' if count_format == 'shown' else '' }}{{ shown if shown is not none else total }} из {{ total }}{% endif -%}
   </span>
   {%- if mode == 'server' %}
     {%- set active = namespace(value=false) %}
@@ -54,8 +54,9 @@
 {%- endmacro %}
 
 {# Скрытое поле сохраняет выбранный чип при обычной GET-отправке. #}
-{% macro chips(name, label, options, selected=None, counts=None, count_scope=None, none_value='__none__') -%}
+{% macro chips(name, label, options, selected=None, counts=None, count_scope=None, none_value='__none__', label_visible=False) -%}
 <div class="list-chips" role="group" aria-label="{{ label }}" data-chip-group="{{ name }}" data-none-value="{{ none_value }}"{% if count_scope is not none %} data-count-scope="{{ count_scope|join(' ') }}"{% endif %}>
+  {% if label_visible %}<span class="list-chips__label--visible">{{ label }}</span>{% endif -%}
   <input type="hidden" name="{{ name }}" value="{{ selected or '' }}" data-chip-value data-none-value="{{ none_value }}">
   {%- for option in options %}
     <button type="button" class="btn chip" data-chip="{{ option[0] }}"
@@ -85,10 +86,10 @@
 {%- endmacro %}
 
 {# Общая разметка подписи сохраняет одну ось с dropdown; тип задаёт сервис. #}
-{% macro input(name, label, value='', type='text', attrs={}, label_visible=False) -%}
+{% macro input(name, label, value='', type='text', attrs={}, label_visible=False, nav=False) -%}
 <label class="list-dropdown list-input">
   <span class="{{ 'list-dropdown__label' if label_visible else 'visually-hidden' }}">{{ label }}</span>
-  <input type="{{ type }}" name="{{ name }}" value="{{ value }}" data-list-filter{{ attrs|xmlattr }}>
+  <input type="{{ type }}" name="{{ name }}" value="{{ value }}" data-list-{{ 'nav' if nav else 'filter' }}{{ attrs|xmlattr }}>
 </label>
 {%- endmacro %}
 
@@ -102,7 +103,8 @@
 {%- set digits = width[:-1] if width is string and width.endswith('%') else width %}
 {%- set valid_width = (width is number and width is not boolean) or
     (digits is string and digits.isascii() and digits.isdecimal()) %}
-{% if header %}<th scope="col" class="data-table__{{ column.align|default('start') }}{% if column.class is string and column.class %} {{ column.class }}{% endif %}"
+{% if header %}<th scope="col" aria-label="{{ column.label|striptags }}" class="data-table__{{ column.align|default('start') }}{% if column.class is string and column.class %} {{ column.class }}{% endif %}"
+    {%- if column.stack is defined %} data-stack="{{ column.stack }}"{% endif %}
     {%- if valid_width %} width="{{ width }}"{% endif %}
     {%- if column.sortable|default(true) %}
       aria-sort="{{ 'ascending' if direction == 'asc' else ('descending' if direction == 'desc' else 'none') }}"
@@ -113,7 +115,7 @@
       {{- _query_args(query) }}
       {%- set _ = query.append(('sort', column.key)) %}
       {%- set _ = query.append(('dir', 'desc' if active and dir == 'asc' else 'asc')) %}
-      <a class="th-sort" href="{{ request.path }}?{{ query|urlencode }}">
+      <a class="th-sort"{% if not header and active %} aria-current="true"{% endif %} href="{{ request.path }}?{{ query|urlencode }}">
     {%- else %}
       <button type="button" class="th-sort" data-sort-key="{{ column.key }}"
               data-sort-type="{{ column.type|default('text') }}"{% if not header %} aria-pressed="{{ 'true' if active else 'false' }}"{% endif %}>
@@ -145,16 +147,16 @@
    В строках: list.select_cell(id, label, name=select_name). Без select_name старый
    caller без аргументов сохраняется. Флажок «выбрать все» всегда без name. #}
 {% macro data_table(id, columns, sort=None, dir='asc', mode='client', compact=False,
-                    stacked=False, selectable=False, label='Таблица', fixed=False, select_name=None, reveal_on_filter=False) -%}
+                    stacked=False, selectable=False, label='Таблица', fixed=False, select_name=None, reveal_on_filter=False, attrs={}) -%}
 <div class="table-scroll{% if fixed %} table-scroll--fixed{% endif %}"
      role="region" aria-label="{{ label }}" tabindex="0">
   <table id="{{ id }}"
-         class="data-table{% if compact %} data-table--compact{% endif %}{% if stacked %} data-table--stacked{% endif %}"
-         data-list data-reveal-on-filter="{{ 'true' if reveal_on_filter else 'false' }}" data-mode="{{ mode }}" data-sort="{{ sort or '' }}" data-dir="{{ dir }}">
+         class="data-table{% if compact %} data-table--compact{% endif %}{% if stacked %} data-table--stacked{% endif %}{% if attrs.get('class') %} {{ attrs.get('class') }}{% endif %}"
+         data-list data-reveal-on-filter="{{ 'true' if reveal_on_filter else 'false' }}" data-mode="{{ mode }}" data-sort="{{ sort or '' }}" data-dir="{{ dir }}"{% for key, value in attrs.items() if key not in ('class', 'id') %}{{ {key: value}|xmlattr }}{% endfor %}>
     <thead>
       <tr>
         {%- if selectable %}
-          <th scope="col" class="data-table__select">
+          <th scope="col" aria-label="Выбрать все подходящие строки" class="data-table__select">
             <label class="list-select"><input type="checkbox" data-select-all aria-label="Выбрать все подходящие строки"></label>
           </th>
         {%- endif %}
@@ -162,9 +164,11 @@
           {{ sort_th(column, sort, dir, mode) }}
         {%- endfor %}
       </tr>
+      {% if stacked %}<tr class="data-table__sort-row" role="presentation"><th role="presentation" colspan="{{ columns|length + (1 if selectable else 0) }}">{{ sort_control(columns, sort, dir, target=id, selectable=selectable, mode=mode) }}</th></tr>{% endif %}
     </thead>
     {{ caller(select_name=select_name) if select_name is not none else caller() }}
   </table>
+  {% if not fixed %}<div class="table-scroll__hbar" aria-hidden="true"><div></div></div>{% endif %}
 </div>
 {%- endmacro %}
 
@@ -195,7 +199,7 @@ data-row{% if pending %} data-lazy-pending{% endif %} data-search="{{ (search if
 {# Пустая строка не участвует в поиске; hidden=False нужен серверному списку. #}
 {% macro empty_row(colspan, text='Ничего не найдено', hidden=True) -%}
 <tr class="data-table__empty" data-empty-row{% if hidden %} hidden{% endif %}>
-  <td colspan="{{ colspan }}">{{ text }}</td>
+  <td colspan="{{ colspan }}"><span class="data-table__empty-inner">{{ text }}</span></td>
 </tr>
 {%- endmacro %}
 
@@ -222,16 +226,24 @@ data-row{% if pending %} data-lazy-pending{% endif %} data-search="{{ (search if
 {%- endmacro %}
 
 {# Явное тело списка позволяет карточкам использовать общую фильтрацию и выбор. #}
-{% macro card_list(id, label=None, reveal_on_filter=False) -%}
-<ul id="{{ id }}" class="card-list" data-list data-reveal-on-filter="{{ 'true' if reveal_on_filter else 'false' }}" data-list-body tabindex="-1"{% if label %} aria-label="{{ label }}"{% endif %}>
+{% macro card_list(id, label=None, reveal_on_filter=False, grid=False) -%}
+<ul id="{{ id }}" class="card-list{% if grid %} card-list--grid{% endif %}" data-list data-reveal-on-filter="{{ 'true' if reveal_on_filter else 'false' }}" data-list-body tabindex="-1"{% if label %} aria-label="{{ label }}"{% endif %}>
   {{ caller() }}
 </ul>
 {%- endmacro %}
 
 {# Группа сортирует соседний список: aria-pressed не требует табличной семантики. #}
-{% macro sort_control(columns, sort=None, dir='asc', target=None, selectable=False) -%}
+{% macro sort_control(columns, sort=None, dir='asc', target=None, selectable=False, mode='client') -%}
 <div class="sort-control" role="group" aria-label="Сортировка" data-sort-control data-sort="{{ sort or '' }}" data-dir="{{ dir }}"{% if target %} data-target="{{ target }}"{% endif %}>
   {% if selectable %}<label class="list-select"><input type="checkbox" data-select-all aria-label="Выбрать все подходящие строки"></label>{% endif %}
-  {% for column in columns if column.sortable|default(true) %}{{ sort_th(column, sort, dir, 'client', header=false) }}{% endfor %}
+  {% for column in columns if column.sortable|default(true) %}{{ sort_th(column, sort, dir, mode, header=false) }}{% endfor %}
 </div>
+{%- endmacro %}
+
+{% macro cell(column, value, empty='—') -%}
+<td data-label="{{ column.label }}"{% if column.stack is defined %} data-stack="{{ column.stack }}"{% endif %}{% if column.primary|default(false) %} class="data-table__primary"{% endif %}{% if value in (none, '', empty) %} data-empty{% endif %}>{{ empty if value is none or value == '' else value }}</td>
+{%- endmacro %}
+
+{% macro secondary_cells(colspan) -%}
+<td colspan="{{ colspan }}" class="data-table__secondary-cell"><details class="data-table__secondary"><summary>Ещё {{ venom_icon('chevron-down') }}</summary>{{ caller() }}</details></td>
 {%- endmacro %}

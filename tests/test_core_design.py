@@ -61,7 +61,8 @@ def test_font_scale_and_weights():
         for value in re.findall(r'(?<![-\w])font-size\s*:\s*([^;{}]+)', css):
             token = re.fullmatch(r'var\(--text-(caption|sm|base|heading|title)\)', value.strip())
             em = re.fullmatch(r'(\d*\.?\d+)em', value.strip())
-            assert token or (em and 0 < float(em[1]) <= 1), (name, value)
+            floor = value.strip() == 'max(.85em, var(--text-caption))'
+            assert token or floor or (em and 0 < float(em[1]) <= 1), (name, value)
         for value in re.findall(r'(?<![-\w])font-weight\s*:\s*([^;{}]+)', css):
             assert value.strip() in ('var(--weight-regular)', 'var(--weight-medium)'), (name, value)
         for value in re.findall(r'(?<![-\w])font\s*:\s*([^;{}]+)', css):

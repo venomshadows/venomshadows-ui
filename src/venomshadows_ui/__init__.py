@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from flask import Blueprint, Flask, has_request_context, request, url_for
 from markupsafe import Markup
@@ -27,7 +28,7 @@ from .timefmt import dt_full, rel_time
 
 __all__ = ["NavItem", "VenomUI", "__version__"]
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 EXTENSION_KEY = "venom_ui"
 
@@ -74,6 +75,15 @@ class UIContext:
     @property
     def logo_alt(self) -> str:
         return f"venom_shadows {self.service}"
+
+    @staticmethod
+    def safe_external_url(value: str | None) -> str:
+        """Allow HTTP(S) and relative references; reject other URL schemes."""
+        value = str(value or '').strip()
+        try:
+            return value if urlsplit(value).scheme.lower() in ('', 'http', 'https') else '#'
+        except ValueError:
+            return '#'
 
     def static(self, filename: str) -> str:
         """URL статики пакета; версия в запросе сбрасывает кэш браузера при обновлении."""

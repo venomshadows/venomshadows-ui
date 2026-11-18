@@ -50,7 +50,7 @@ def test_detail_pairs_filter_sort_lazy(page, live_url):
       document.querySelector('#domains').dispatchEvent(new Event('venomlist:refresh'));
     }''')
     for key in ['number', 'date', 'domain']:
-        page.locator(f'[data-sort-key="{key}"]').click()
+        page.locator(f'[data-sort-key="{key}"]:visible').click()
         assert page.locator('[data-row-detail]').evaluate_all('''details => details.every(detail => {
           let owner = detail.previousElementSibling;
           while (owner?.matches('[data-row-detail]')) owner = owner.previousElementSibling;
@@ -58,11 +58,11 @@ def test_detail_pairs_filter_sort_lazy(page, live_url):
             && (!owner.hidden || detail.hidden);
         })''')
     assert page.locator('[data-row]:visible').count() == 50
-    assert page.locator('[data-list-count]').inner_text() == '180 из 180'
+    assert page.locator('[data-list-count]').inner_text() == 'показано 50 из 180'
     page.locator('[data-list-search]').fill('domain-3.example')
     assert page.locator('[data-row]:visible').count() == 1
     assert page.locator('#detail-3-extra').is_visible()
-    page.locator('[data-select-all]').check()
+    page.locator('[data-select-all]:visible').check()
     assert page.locator('[data-selection-count]').inner_text() == '1'
     page.locator('[data-list-search]').fill('missing')
     assert page.locator('#detail-3').is_hidden()
@@ -84,20 +84,20 @@ def test_cards_filters_sort_selection_state(page, live_url):
     assert page.locator('[data-list-count]').inner_text() == '40 из 40'
     assert page.locator('[data-lazy-sentinel]').is_hidden()
     page.locator('#versions').evaluate("el => el.addEventListener('venomlist:selection', event => window.ids = event.detail.ids)")
-    page.locator('[data-select-all]').check()
+    page.locator('[data-select-all]:visible').check()
     assert len(page.evaluate('window.ids')) == 40
     page.locator('[data-chip="new"]').click()
     assert visible.count() == 20
     assert page.locator('[data-selection-count]').inner_text() == '20'
     page.locator('[data-row]:visible [data-row-select]').first.uncheck()
-    assert page.locator('[data-select-all]').evaluate('el => el.indeterminate')
+    assert page.locator('[data-select-all]:visible').evaluate('el => el.indeterminate')
     page.locator('[data-clear-selection]').click()
     assert page.locator('[data-bulk-bar]').is_hidden()
-    assert page.locator('[data-select-all]').evaluate('el => el === document.activeElement')
-    page.locator('[data-sort-key="title"]').click()
+    assert page.locator('[data-select-all]:visible').evaluate('el => el === document.activeElement')
+    page.locator('[data-sort-key="title"]:visible').click()
     ids = visible.evaluate_all('rows => rows.map(row => Number(row.dataset.id))')
     assert ids == sorted(ids)
-    page.locator('[data-sort-key="title"]').click()
+    page.locator('[data-sort-key="title"]:visible').click()
     assert visible.evaluate_all('rows => rows.map(row => Number(row.dataset.id))') == sorted(ids, reverse=True)
     page.reload()
     assert visible.count() == 20
@@ -109,7 +109,7 @@ def test_cards_filters_sort_selection_state(page, live_url):
     assert visible.count() == 8
     page.locator('[data-list-search]').fill('missing')
     assert page.locator('[data-empty-row]').is_visible()
-    assert page.locator('[data-select-all]').is_disabled()
+    assert page.locator('[data-select-all]:visible').is_disabled()
     page.locator('[data-list-reset]').click()
     assert visible.count() == 40
 
@@ -155,7 +155,7 @@ def test_new_list_screenshots(page, live_url, screenshot, width, demo):
     page.goto(f'{live_url}/demo/{demo}')
     if demo == 'list':
         if width == 360:
-            page.locator('[data-sort-key="number"]').click()
+            page.locator('[data-sort-key="number"]:visible').click()
         page.locator('[data-id="3"] [data-detail-toggle]').click()
         detail = page.locator('#detail-3')
         assert detail.is_visible()
@@ -218,8 +218,8 @@ def test_remove_rows_never_orphans_details(page, live_url, demo):
     assert page.evaluate('window.refreshes') == 1
     assert page.locator('#detail-12, #detail-12-extra, #detail-9, [data-id="12"], [data-id="9"]').count() == 0
     if demo == 'list':
-        assert page.locator('[data-list-count]').inner_text() == '178 из 178'
-        page.locator('[data-sort-key="number"]').click()
+        assert page.locator('[data-list-count]').inner_text() == 'показано 50 из 178'
+        page.locator('[data-sort-key="number"]:visible').click()
         assert page.locator('[data-row-detail]').evaluate_all('''details => details.every(detail =>
           detail.previousElementSibling.dataset.id === detail.id.replace('detail-', ''))''')
     page.locator('[data-id="3"] [data-row-select]').check()
@@ -266,28 +266,11 @@ def test_stacked_header_visible_regions_do_not_overlap(page, live_url):
     page.set_viewport_size({'width': 360, 'height': 1000})
     page.goto(live_url + '/demo/list')
     for key in ['number', 'domain', 'status', 'date', 'number']:
-        page.locator(f'[data-sort-key="{key}"]').click()
-        assert page.locator(f'[data-sort-key="{key}"]').evaluate('''active => {
-          const th = active.closest('th');
-          const header = th.closest('tr');
-          const select = header.querySelector('.data-table__select');
-          const activeBox = active.getBoundingClientRect();
-          const clip = header.getBoundingClientRect();
-          const selectBox = select.getBoundingClientRect();
-          if (Number(getComputedStyle(select).zIndex) <= Number(getComputedStyle(th).zIndex)) return false;
-          // Сравниваем видимые области: статические flex-ячейки прокручиваются под липкой.
-          for (const sibling of header.querySelectorAll('th[aria-sort]')) {
-            if (sibling === th) continue;
-            if (Number(getComputedStyle(sibling).zIndex) >= Number(getComputedStyle(th).zIndex)) return false;
-            const box = sibling.querySelector('.th-sort').getBoundingClientRect();
-            const left = Math.max(box.left, activeBox.left, clip.left, selectBox.right);
-            const right = Math.min(box.right, activeBox.right, clip.right);
-            for (let x = left + 1; x < right; x += 2) {
-              const top = document.elementFromPoint(x, activeBox.top + activeBox.height / 2);
-              if (!th.contains(top)) return false;
-            }
-          }
-          return true;
+        page.locator(f'[data-sort-key="{key}"]:visible').click()
+        assert page.locator(f'[data-sort-key="{key}"]:visible').evaluate('''active => {
+          const box = active.getBoundingClientRect();
+          return [.1, .5, .9].every(x => [.1, .5, .9].every(y =>
+            active.contains(document.elementFromPoint(box.left + box.width * x, box.top + box.height * y))));
         }''')
     page.locator('[data-id="3"] [data-detail-toggle]').click()
     assert page.locator('#detail-3').evaluate('el => getComputedStyle(el).borderTopWidth') == '0px'

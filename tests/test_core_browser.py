@@ -21,7 +21,7 @@ def test_invalid_field_border(page, live_url):
     }''')
 
 
-@pytest.mark.parametrize('width', [1600, 860, 360])
+@pytest.mark.parametrize('width', [1600, 1280, 860, 400, 360])
 @pytest.mark.parametrize('demo', ['settings', 'components', 'sidebar', 'login', 'list', 'list-server'])
 def test_responsive_demos(page, live_url, width, demo, screenshot):
     page.set_viewport_size({'width': width, 'height': 1000})

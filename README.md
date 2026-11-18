@@ -12,7 +12,7 @@ SVG-иконки, каркасы Jinja, формы, уведомления и п
 ```toml
 [project]
 dependencies = [
-  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.4",
+  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.5",
 ]
 ```
 
@@ -108,7 +108,7 @@ view с подчёркиванием на конце. В шаблоне `nav_act
 | `checkbox(name, label, checked=False, hint=None, error=None, required=False, attrs={})` | Флажок с кликабельной строкой и значением `1`. |
 | `select(name, label, options, selected=None, hint=None, error=None, required=False, attrs={})` | Выбор из пар `(value, label)`. |
 | `textarea(name, label, value='', rows=4, hint=None, error=None, placeholder='', required=False, attrs={})` | Многострочный ввод с нативной проверкой обязательности. |
-| `secret_field(name, label, has_value, placeholder_hint='', clearable=False, hint=None, error=None, required=False, attrs={})` | Пустое поле замены SMTP-пароля; флажок очистки называется `<name>__clear`. |
+| `secret_field(name, label, has_value, placeholder_hint='', clearable=False, hint=None, error=None, required=False, attrs={}, reveal=False, clear_label='Очистить', placeholder_unset=None)` | Пустое поле замены SMTP-пароля; флажок очистки называется `<name>__clear`. |
 | `icon_button(icon, label, variant=None, compact=False, attrs={})` | Кнопка с иконкой; соседние контролы размещайте во flex-контейнере с `align-items: center; gap: .5rem` минимум, чтобы зона нажатия 44px не перекрывала их. |
 | `copy_button(target_id, label='Копировать')` | Копирование поля или текста элемента по id. |
 | `api_key_block(key, id='api-key')` | Ключ целиком в `pre` с копированием; пустой ключ не выводится. |
@@ -119,7 +119,7 @@ view с подчёркиванием на конце. В шаблоне `nav_act
 | `settings_actions(save_label='Сохранить', test_label=None, test_action=None)` | Сохранение и дополнительная проверка через `formaction` той же формы. |
 | `flash_stack()` | Flash-сообщения Flask; уже вызывается каркасом приложения. |
 | `banner(category, text, details=None, actions=None, closable=True, inline=False)` | Уведомление с SVG и необязательными подробностями (строка или список). |
-| `empty_state(title, text=None, icon='inbox')` | Пустое состояние; caller для действия необязателен. |
+| `empty_state(title, text=None, icon='inbox', sidebar=False, text_mobile=None, sidebar_label='Открыть меню')` | Пустое состояние; caller для действия необязателен. |
 | `modal(id, title)` | Нативный dialog с caller и кнопкой закрытия. |
 | `confirm_dialog()` | Общий диалог подтверждения; уже включён один раз в app. |
 | `auth_steps(current, total, labels)` | Нумерованные с единицы шаги входа. |
@@ -129,7 +129,7 @@ view с подчёркиванием на конце. В шаблоне `nav_act
 | Макрос из `list.html` | Назначение |
 | --- | --- |
 | `filter_bar(target, …)`, `search(…)`, `chips(…)`, `dropdown(…)`, `input(…)` | Панель поиска и фильтров; содержимое панели через caller. |
-| `data_table(id, columns, …, select_name=None, reveal_on_filter=False)`, `sort_th(…)` | Таблица с сортировкой; строки через caller. |
+| `data_table(id, columns, …, select_name=None, reveal_on_filter=False, attrs={})`, `sort_th(…)` | Таблица с сортировкой; строки через caller. |
 | `row_attrs(…)`, `select_cell(id, label, name=None)` | Данные строки и флажок выбора; name включает отправку id формой. |
 | `bulk_bar(target, …)`, `lazy_sentinel(target)`, `empty_row(colspan, …)` | Массовые действия, постепенное раскрытие и пустое состояние. |
 
@@ -695,3 +695,99 @@ bulk bar или списка. Для формы без явной связи у�
 поддерживает раскрытие всех результатов по тем же правилам, что и таблица.
 Декоративный разделитель `--border-bright` над `--bg-panel` сохраняет выбранный
 контраст около 2.6:1; это не заявление о соответствии границ UI WCAG 1.4.11.
+
+## Миграция на 0.1.5
+
+Основание: [аудит ноября 2026](../design-audit-2026-11.md), PKG-01…PKG-27.
+Новые параметры необязательны. Старые вызовы сохраняют HTML, кроме явно
+перечисленных исправлений в CHANGELOG. `stacked=False` остаётся умолчанием;
+`'auto'` — явный синоним `True`, а не автоматическое определение ширины таблицы.
+
+Без изменений в сервисах обновляются: disabled-кнопки без заливки, края лент,
+перенос мобильных заголовков сортировки, чипов и кнопок страницы, положение
+пустого сообщения таблицы, горизонтальная полоса широких таблиц, sticky-шапка
+узких таблиц без `fixed`, перенос первой ячейки карточки, скрытие `td[data-empty]`
+в карточках, summary «Показать ещё»/«Таблица данных», отступы настроек и нижний
+предел размера `code`/`kbd` 13px. Сортировка остаётся кликом со SVG-стрелками.
+
+В сервисах удалите локальные переопределения `.list-chips` и `thead tr`, задайте
+stack-флаги колонок и добавьте `settings_toc` при шести и более секциях.
+Для узкой прокручиваемой строки сортировки передайте
+`attrs={'class': 'data-table--stacked-scroll'}` в `data_table`.
+И десктопная, и мобильная сортировка поддерживают клиентский и серверный режим.
+У `th` сохраняется `aria-sort`, мобильные кнопки сообщают направление текстом.
+
+### Новые параметры и макросы
+
+| API | Назначение |
+|---|---|
+| `secret_field(..., reveal=False, clear_label='Очистить', placeholder_unset=None)` | Опциональная кнопка показа, подпись очистки, placeholder незаданного пароля. Старые вызовы не меняются. |
+| `settings_toc(sections, label='Разделы настроек')` | Пары `(id, title)` или словари `{id, title}`, ссылки на `#settings-<id>`. |
+| `empty_state(title, text=None, icon='inbox', sidebar=False, text_mobile=None, sidebar_label='Открыть меню')` | Мобильный текст и кнопка существующего sidebar. |
+| `status_dot(tone, label)` | `ok / warning / danger / neutral`; обязательное доступное имя и title. |
+| `settings_section(..., no_marker=True)` | Только `no_marker=True` убирает маркер; `None`, `False`, `0`, `''` сохраняют «Не настроено». |
+| `external_link(href, label, class_='')` | Иконка новой вкладки, `target=_blank`, `rel=noopener`, доступное предупреждение. Допускаются HTTP(S) и относительные ссылки; остальные схемы заменяются на `#`. |
+| `kv_list(items=(), label=None)`, `kv_item(term, value=None)` | Пары ключ/значение; Markup сохраняется, обычный текст экранируется. Вложенный `call` для сложных значений. |
+| `data_table(..., stacked=False, attrs={})` | Колонки `stack='show'/'hide'/'secondary'`, `primary=False`. `attrs` добавляет класс и атрибуты таблицы. |
+| `cell(column, value, empty='—')` | Подпись, `data-stack`, `data-table__primary`, `data-empty` для `None`, `''`, пустого маркера. |
+| `secondary_cells(colspan)` | `call`-ячейка с `details` «Ещё», видимая в stacked-режиме. |
+| `filter_bar(..., count='always')` | `always / auto / none`; `auto` скрывает счётчик, когда показаны все. По умолчанию «N из M»; `count_format='shown'` включает «показано N из M». |
+| `chips(..., label_visible=False)` | Опциональная видимая подпись; при `False` прежний `aria-label`. |
+| `input(name, label, value='', type='text', attrs={}, label_visible=False, nav=False)` | При `nav=True` GET-переход по change, без фильтрации списка. |
+| `card_list(id, label=None, reveal_on_filter=False, grid=False)` | Опциональная адаптивная сетка. |
+| `.btn-link--danger` | Текстовая кнопка удаления с подчёркиванием при наведении. |
+| `VenomUI.overflowEdges(el)` | Подключение маски краёв к пользовательской прокручиваемой ленте; также `[data-overflow-edges]`. |
+
+```jinja
+{% import 'venom_ui/macros.html' as kv %}
+{% call kv.kv_list(label='Сведения') %}
+  {% call kv.item('Нагрузка') %}<progress value="42" max="100">42%</progress>{% endcall %}
+{% endcall %}
+
+{# В обычной таблице secondary остаётся обычной ячейкой. В карточке — под «Ещё». #}
+{{ list.cell(columns[0], row.name) }}
+{{ list.cell(columns[1], row.details) }}
+{% call list.secondary_cells(2) %}
+  {{ kv.kv_list([('Подробности', row.details)]) }}
+{% endcall %}
+```
+
+### Правила оформления (стандарт владельца 25.09)
+
+1. **Секреты.** Токен Telegram-бота и API-ключи видны: обычный `field`, без
+   «Показать». Собственный ключ сервиса для копирования — `api_key_block`.
+   Скрыт только SMTP-пароль: `secret_field(name, label, has_value=bool(stored),
+   clearable=True)`. Значение не возвращается в HTML, пустое поле сохраняет
+   текущее, `<name>__clear` удаляет его на сервере. `reveal` и `clear_label`
+   доступны для будущего решения владельца; к токенам, ключам и паролям
+   кабинетов их не применять до решения «Спорное» 13 аудита.
+2. **Пустые списки.** `empty_row(hidden=True)` — строка «по фильтру ничего не
+   найдено», управляемая `list.js`. Если исходных данных вообще нет, вместо
+   пустой таблицы и фильтров — `empty_state` с действием через `call`.
+   Это не основание убирать фильтры из существующих списков, в том числе коротких.
+   `sidebar=True` предлагает открыть левую колонку на телефоне.
+3. **Stack-флаги.** На ≤699px `show` виден, `hide` скрыт, `secondary` сервис
+   собирает в `secondary_cells` (вложенные значения через `kv_list`, не вложенные
+   `td`). Одна колонка `primary=True` — заголовок карточки без подписи, 14px/500.
+   Сервис использует `cell` или выставляет те же атрибуты вручную. Пустые ячейки
+   помечает `data-empty`. Вне карточного режима эти флаги не скрывают данные.
+   Список >30 строк без действий — `compact=True`; >8 колонок — `fixed=True`
+   либо общая горизонтальная полоса. `fixed` ограничивает высоту 70vh.
+4. **Заголовки и вход.** `<title>`: «Объект — Раздел — Сервис», h1 — объект,
+   раздел — lead/subnav. Меню: «Обзор», «Бренды», …, «Настройки» последним.
+   Не дублируйте подписи логина/пароля placeholder-ами: auth.html предоставляет
+   только оболочку, поля задаёт сервис; в демо дублирования нет.
+5. **Настройки.** Hint — одна фраза, инструкция — `details` «Как настроить» под
+   полями. Якоря `#settings-<id>`; ≥6 секций — `settings_toc`; без состояния —
+   `no_marker=True`. Липкий верх TOC задаёт `--settings-toc-top`. Ширина страницы
+   полная, без новых рамок и узких колонок.
+6. **Ленты.** topbar прокручивается с маской и тонкой полосой, активная вкладка
+   видна при загрузке. subnav с 641px и чипы с 700px — ленты с маской; ниже —
+   перенос. Шапка таблицы без горизонтального переполнения липнет к странице;
+   у `fixed` — к своей области. При горизонтальном переполнении браузер создаёт
+   внутренний scroll-контейнер: доступ к прокрутке обеспечивает плавающая нижняя
+   полоса; для одновременного закрепления заголовков широкой таблицы используйте `fixed`.
+
+Тема остаётся тёмной; светлая палитра требует отдельного решения. Сохраняются
+локальные Roboto, шкала 13/14/16/18/24, веса 400/500, логотип 5rem, sidebar 320px,
+вторая строка меню на ≤640px, единый banner и прежние фильтры.

@@ -88,7 +88,10 @@
     if (!form) return;
     all('[data-chip-group]', form).forEach(group => {
       const value = group.querySelector('[data-chip-value]').value;
-      all('[data-chip]', group).forEach(chip => chip.setAttribute('aria-pressed', String(chip.dataset.chip === value)));
+      const otherActive = controls(form).some(field => !group.contains(field) && field.value !== '');
+      // Empty value is «Все»; none_value means «Без значения», a real filter.
+      all('[data-chip]', group).forEach(chip => chip.setAttribute('aria-pressed', String(
+        chip.dataset.chip === value && !(value === '' && otherActive))));
     });
     const reset = form.querySelector('[data-list-reset]');
     if (reset?.matches('button')) reset.disabled = !controls(form).some(control => control.value !== '');
@@ -108,6 +111,7 @@
       if (event.target.matches('[data-list-search]')) { syncChips(form); changed(true); }
     });
     form.addEventListener('change', event => {
+      if (event.target.matches('[data-list-nav]')) return;
       if (!event.target.matches('[data-list-search]')) { syncChips(form); changed(false); }
     });
     form.querySelector('button[data-list-reset]')?.addEventListener('click', () => {
@@ -259,7 +263,11 @@
   function updateCounts(state) {
     if (!state.form) return;
     const count = state.form.querySelector('[data-list-count]');
-    if (count) count.textContent = state.matching.length + ' из ' + state.rows.length;
+    if (count) {
+      const shown = count.dataset.countFormat === 'shown' ? Math.min(state.limit, state.matching.length) : state.matching.length;
+      count.textContent = (count.dataset.countFormat === 'shown' ? 'показано ' : '') + shown + ' из ' + state.rows.length;
+      count.hidden = state.form.dataset.count === 'none' || (state.form.dataset.count === 'auto' && shown === state.rows.length);
+    }
     all('[data-chip-group]', state.form).forEach(group => {
       const names = group.hasAttribute('data-count-scope') ? group.dataset.countScope.split(/\s+/).filter(Boolean) : null;
       const scope = state.rows.filter(row => matches(state, row, group.dataset.chipGroup, names));
@@ -281,10 +289,16 @@
       state.selectAll.checked = selectable.length > 0 && checked === selectable.length;
       state.selectAll.indeterminate = checked > 0 && checked < selectable.length;
       state.selectAll.disabled = selectable.length === 0;
+      state.selectAlls.forEach(box => {
+        box.checked = state.selectAll.checked;
+        box.indeterminate = state.selectAll.indeterminate;
+        box.disabled = state.selectAll.disabled;
+      });
     }
     state.bars.forEach(bar => {
       if (!selected.length && bar.contains(document.activeElement)) {
-        (state.selectAll && !state.selectAll.disabled ? state.selectAll : focusTarget(state.table))?.focus();
+        const visibleSelect = state.selectAlls.find(box => !box.disabled && getComputedStyle(box).visibility !== 'hidden' && box.getClientRects().length);
+        (visibleSelect || focusTarget(state.table))?.focus();
       }
       bar.hidden = selected.length === 0;
       const count = bar.querySelector('[data-selection-count]');
@@ -326,6 +340,7 @@
     });
     all('[data-empty-row]', state.table).forEach(row => { row.hidden = state.matching.length !== 0; });
     if (state.selection) updateSelection(state.selection);
+    updateCounts(state);
     scheduleReveal(state);
   }
 
@@ -353,11 +368,11 @@
     });
     all('[data-empty-row]', state.table).forEach(row => row.parentElement.appendChild(row));
     state.headers.forEach(header => {
-      const dir = header === active ? state.direction : 'none';
-      const th = header.closest('th');
+      const dir = header.dataset.sortKey === state.sort ? state.direction : 'none';
+      const th = header.closest('.sort-control') ? null : header.closest('th');
       if (th) th.setAttribute('aria-sort', dir === 'none' ? 'none' : (dir === 'asc' ? 'ascending' : 'descending'));
       else {
-        header.setAttribute('aria-pressed', String(header === active));
+        header.setAttribute('aria-pressed', String(dir !== 'none'));
         const direction = header.querySelector('[data-sort-direction]');
         if (direction) direction.textContent = dir === 'none' ? '' : (dir === 'asc' ? ', по возрастанию' : ', по убыванию');
       }
@@ -371,7 +386,6 @@
     if (active && state.table.dataset.revealOnFilter === 'true') state.limit = Infinity;
     else if (resetLimit) state.limit = state.lazy ? 50 : Infinity;
     state.matching = state.rows.filter(row => matches(state, row));
-    updateCounts(state);
     reveal(state);
     if (save) persist(state);
   }
@@ -382,9 +396,9 @@
     if (table.classList.contains('data-table--stacked')) {
       table.setAttribute('role', 'table');
       Object.entries({ 'thead, tbody': 'rowgroup', tr: 'row', th: 'columnheader', td: 'cell' })
-        .forEach(([selector, role]) => all(selector, table).forEach(node => node.setAttribute('role', role)));
+        .forEach(([selector, role]) => all(selector, table).forEach(node => { if (node.getAttribute('role') !== 'presentation') node.setAttribute('role', role); }));
     }
-    const labels = all('thead th', table).map(th => th.textContent.trim());
+    const labels = all('thead tr:first-child th', table).map(th => th.textContent.trim());
     all('tbody > [data-row]:not(.data-table__empty)', table).forEach(row => Array.from(row.cells).forEach((cell, index) => {
       if (!cell.hasAttribute('data-label')) cell.dataset.label = labels[index] || '';
     }));
@@ -395,18 +409,19 @@
     if (!table.querySelector('[data-row-select]') && !table.querySelector('[data-select-all]') && !group?.querySelector('[data-select-all]')) return null;
     const state = {
       table, rows: [], bars: linked('[data-bulk-bar]', table.id),
-      selectAll: table.querySelector('[data-select-all]') || group?.querySelector('[data-select-all]'), lastSelection: ''
+      selectAll: table.querySelector('[data-select-all]') || group?.querySelector('[data-select-all]'),
+      selectAlls: [...new Set(all('[data-select-all]', table).concat(group ? all('[data-select-all]', group) : []))], lastSelection: ''
     };
     const changed = event => {
       if (!event.target.matches('[data-select-all], [data-row-select]')) return;
-      if (event.target === state.selectAll) {
+      if (state.selectAlls.includes(event.target)) {
         selectableRows(state)
-          .forEach(row => { checkbox(row).checked = state.selectAll.checked; });
+          .forEach(row => { checkbox(row).checked = event.target.checked; });
       }
       updateSelection(state);
     };
     table.addEventListener('change', changed);
-    group?.addEventListener('change', changed);
+    if (group && !table.contains(group)) group.addEventListener('change', changed);
     state.bars.forEach(bar => bar.querySelector('[data-clear-selection]')?.addEventListener('click', () => {
       state.rows.forEach(row => { if (checkbox(row)) checkbox(row).checked = false; });
       updateSelection(state);
@@ -477,7 +492,7 @@
     const group = sortGroup(table);
     const state = {
       table, form, rows, sentinels, selection, fields: controls(form),
-      headers: all('[data-sort-key]', table).concat(group ? all('[data-sort-key]', group) : []), originalOrder: new WeakMap(rows.map((row, index) => [row, index])), nextOrder: rows.length,
+      headers: [...new Set(all('[data-sort-key]', table).concat(group ? all('[data-sort-key]', group) : []))], originalOrder: new WeakMap(rows.map((row, index) => [row, index])), nextOrder: rows.length,
       lazy: sentinels.length > 0 && 'IntersectionObserver' in window,
       sort: table.dataset.sort || group?.dataset.sort || '', direction: (table.dataset.dir || group?.dataset.dir) === 'desc' ? 'desc' : 'asc',
       persistence: form?.dataset.persist || 'session',
@@ -498,6 +513,10 @@
   }
 
   function init(root = document) {
+    all('.table-scroll', root).forEach(initScroll);
+    const wrapper = root.closest?.('.table-scroll');
+    if (wrapper) initScroll(wrapper);
+    all('.data-table--stacked-scroll .sort-control', root).forEach(el => window.VenomUI?.overflowEdges(el));
     const forms = all('[data-filter-bar]', root);
     if (root.matches?.('[data-filter-bar]')) forms.unshift(root);
     forms.forEach(form => {
@@ -521,6 +540,82 @@
       initClient(table, form, selection);
     });
   }
+  const scrollBindings = new Map();
+  const releaseScroll = (wrap, binding) => {
+    binding.observer.disconnect();
+    binding.controller.abort();
+    scrollBindings.delete(wrap);
+    wrap.classList.remove('is-scroll-ready', 'is-overflow');
+  };
+  const pruneScroll = () => scrollBindings.forEach((binding, wrap) => {
+    if (!wrap.isConnected || binding.table !== wrap.querySelector('table') || binding.bar !== wrap.querySelector('.table-scroll__hbar')) {
+      releaseScroll(wrap, binding);
+    }
+  });
+  new MutationObserver(pruneScroll).observe(document, {childList: true, subtree: true});
+  window.addEventListener('scroll', () => {
+    pruneScroll();
+    scrollBindings.forEach(binding => binding.position());
+  }, {passive: true});
+  function initScroll(wrap) {
+    const table = wrap.querySelector('table');
+    let bar = wrap.querySelector('.table-scroll__hbar');
+    const binding = scrollBindings.get(wrap);
+    if (binding) {
+      if (table === binding.table && bar === binding.bar && !wrap.classList.contains('table-scroll--fixed')) {
+        binding.measure();
+        return;
+      }
+      releaseScroll(wrap, binding);
+    }
+    if (!table || wrap.classList.contains('table-scroll--fixed')) return;
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'table-scroll__hbar';
+      bar.setAttribute('aria-hidden', 'true');
+      bar.append(document.createElement('div'));
+      wrap.append(bar);
+    }
+    const position = () => {
+      const rect = wrap.getBoundingClientRect();
+      const floating = wrap.classList.contains('is-overflow') && rect.top < innerHeight - 12 && rect.bottom > innerHeight;
+      bar.style.position = floating ? 'fixed' : 'sticky';
+      bar.style.left = floating ? rect.left + 'px' : '';
+      bar.style.width = wrap.clientWidth + 'px';
+    };
+    const measure = () => {
+      wrap.classList.toggle('is-overflow', table.scrollWidth > wrap.clientWidth + 1);
+      bar.firstElementChild.style.width = table.scrollWidth + 'px';
+      wrap.style.setProperty('--table-visible-width', wrap.clientWidth + 'px');
+      position();
+      wrap.classList.add('is-scroll-ready');
+    };
+    const controller = new AbortController();
+    wrap.addEventListener('scroll', () => {
+      if (Math.abs(bar.scrollLeft - wrap.scrollLeft) > 1) bar.scrollLeft = wrap.scrollLeft;
+    }, { passive: true, signal: controller.signal });
+    bar.addEventListener('scroll', () => {
+      if (Math.abs(wrap.scrollLeft - bar.scrollLeft) > 1) wrap.scrollLeft = bar.scrollLeft;
+    }, { passive: true, signal: controller.signal });
+    const observer = new ResizeObserver(measure);
+    scrollBindings.set(wrap, {table, bar, observer, position, measure, controller});
+    observer.observe(table);
+    observer.observe(wrap);
+    measure();
+  }
+  document.addEventListener('change', event => {
+    const field = event.target;
+    if (!field.matches('[data-list-nav]')) return;
+    const form = field.closest('[data-filter-bar]');
+    if (form?.dataset.mode === 'server') form.requestSubmit();
+    else {
+      const url = new URL(location.href);
+      if (field.value) url.searchParams.set(field.name, field.value);
+      else url.searchParams.delete(field.name);
+      url.searchParams.delete('page');
+      location.assign(url.href);
+    }
+  });
   window.VenomList = { init, removeRows };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => init());
   else init();

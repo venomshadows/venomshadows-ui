@@ -46,7 +46,7 @@
 <ul class="{{ class_ }}">{% for item in items[:visible] %}{{ caller(item) }}{% endfor %}</ul>
 {% if items | length > visible %}
   {% if more_href %}<a class="dash-more-link" href="{{ more_href }}">Все ({{ items | length }})</a>
-  {% else %}<details class="hmore"><summary>Показать ещё {{ items | length - visible }}</summary><ul class="{{ class_ }}">{% for item in items[visible:] %}{{ caller(item) }}{% endfor %}</ul></details>{% endif %}
+  {% else %}<details class="hmore"><summary class="hmore__summary">Показать ещё {{ items | length - visible }}{{ venom_icon('chevron-down') }}</summary><ul class="{{ class_ }}">{% for item in items[visible:] %}{{ caller(item) }}{% endfor %}</ul></details>{% endif %}
 {% endif %}
 {% endmacro %}
 
@@ -107,7 +107,7 @@
           </div>
         </figure>
         <details class="hdata">
-          <summary>Таблица данных</summary>
+          <summary class="hmore__summary">Таблица данных{{ venom_icon('chevron-down') }}</summary>
           <div class="table-scroll">
             <table class="hdata__table">
               <caption class="visually-hidden">{{ table_caption }}</caption>

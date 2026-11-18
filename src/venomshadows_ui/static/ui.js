@@ -14,7 +14,7 @@
   }
 
   document.addEventListener("change", event => {
-    const menu = event.target.closest("details.checkbox-menu");
+    const menu = event.target instanceof Element ? event.target.closest("details.checkbox-menu") : null;
     if (menu) updateCheckboxCount(menu);
   });
   document.addEventListener("click", event => {
@@ -251,6 +251,7 @@
   const backdrop = document.querySelector("[data-sidebar-close][hidden]");
   const desktop = window.matchMedia("(min-width: 861px)");
   let drawerOpen = false;
+  let sidebarOpener = toggle;
   let previousInert = [];
 
   function setSidebarOpen(open, restoreFocus = true) {
@@ -269,7 +270,7 @@
     } else {
       previousInert.forEach(([element, inert]) => { element.inert = inert; });
       previousInert = [];
-      if (restoreFocus) toggle.focus({ preventScroll: true });
+      if (restoreFocus) (sidebarOpener || toggle).focus({ preventScroll: true });
       else if (document.activeElement?.matches("[data-sidebar-close]")) sidebar.focus({ preventScroll: true });
     }
   }
@@ -298,7 +299,10 @@
   document.addEventListener("click", event => {
     const target = event.target;
     if (!(target instanceof Element)) return;
-    if (target.closest("[data-sidebar-toggle]")) setSidebarOpen(!drawerOpen);
+    if (target.closest("[data-sidebar-toggle]")) {
+      sidebarOpener = target.closest("[data-sidebar-toggle]");
+      setSidebarOpen(!drawerOpen);
+    }
     if (target.closest("[data-sidebar-close]")) setSidebarOpen(false);
     const close = target.closest("[data-banner-close]");
     if (close) {
@@ -321,5 +325,63 @@
     updateFiles();
   });
   updateFiles();
-  window.VenomUI = Object.freeze({ copyFrom, resetBusy, setSidebarOpen, updateFileStatus, pluralRu });
+  const edgeBindings = new Map();
+  new MutationObserver(() => edgeBindings.forEach((binding, el) => {
+    if (!el.isConnected) {
+      binding.observer.disconnect();
+      binding.children.disconnect();
+      el.removeEventListener('scroll', binding.update);
+      edgeBindings.delete(el);
+    }
+  })).observe(document, {childList: true, subtree: true});
+  function overflowEdges(el) {
+    const update = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      el.classList.toggle('is-overflow-start', max > 1 && el.scrollLeft > 1);
+      el.classList.toggle('is-overflow-end', max > 1 && el.scrollLeft < max - 1);
+    };
+    if (!edgeBindings.has(el)) {
+      el.addEventListener('scroll', update, { passive: true });
+      const observer = new ResizeObserver(update);
+      const observeChildren = () => {
+        observer.disconnect();
+        observer.observe(el);
+        Array.from(el.children).forEach(child => observer.observe(child));
+        update();
+      };
+      const children = new MutationObserver(observeChildren);
+      children.observe(el, {childList: true});
+      edgeBindings.set(el, {observer, children, update});
+      observeChildren();
+      if (el.scrollWidth > el.clientWidth) {
+        el.querySelector('.topbar__tab--active, .subnav__tab[aria-current]')
+          ?.scrollIntoView({ inline: 'center', block: 'nearest' });
+      }
+    }
+    update();
+  }
+  document.querySelectorAll('.topbar__nav, .subnav, .list-chips, [data-overflow-edges]').forEach(overflowEdges);
+  function setSecretVisible(button, show) {
+    const input = document.getElementById(button.getAttribute('aria-controls'));
+    if (!input || !button.closest('.secret-field')?.contains(input)) return;
+    input.type = show ? 'text' : 'password';
+    button.setAttribute('aria-pressed', String(show));
+    button.setAttribute('aria-label', show ? 'Скрыть' : 'Показать');
+    const eye = button.querySelector('[data-secret-eye]');
+    const eyeOff = button.querySelector('[data-secret-eye-off]');
+    if (eye) eye.hidden = show;
+    if (eyeOff) eyeOff.hidden = !show;
+  }
+  document.addEventListener('click', event => {
+    if (!(event.target instanceof Element)) return;
+    const button = event.target.closest('[data-secret-reveal]');
+    if (!button) return;
+    const input = document.getElementById(button.getAttribute('aria-controls'));
+    if (input) setSecretVisible(button, input.type === 'password');
+  });
+  document.addEventListener('submit', event => {
+    if (!(event.target instanceof Element)) return;
+    event.target.querySelectorAll('[data-secret-reveal]').forEach(button => setSecretVisible(button, false));
+  });
+  window.VenomUI = Object.freeze({ copyFrom, resetBusy, setSidebarOpen, updateFileStatus, pluralRu, overflowEdges });
 })();

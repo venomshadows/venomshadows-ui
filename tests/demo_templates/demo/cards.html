@@ -13,7 +13,7 @@
 <form method="post" action="/demo/list-selection">
 {{ venom_ui.csrf() }}
 {{ list.sort_control(columns, sort='date', dir='desc', selectable=true) }}
-{% call list.card_list('versions', label='Версии шаблонов') %}
+{% call list.card_list('versions', label='Версии шаблонов', grid=request.args.get('grid') == '1') %}
 {% for i in range(1, 41) %}
 {% set title = 'Шаблон ' ~ i %}
 {% set date = '2026-%02d-%02d'|format(1 + i // 28, 1 + i % 28) %}

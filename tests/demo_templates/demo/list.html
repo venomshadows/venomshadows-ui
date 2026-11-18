@@ -11,12 +11,13 @@
 {% block title %}Демо списка — venom_shadows{% endblock %}
 {% block content %}
 <div class="page">
+{% if request.args.get('example') == 'stacked' %}{% include 'demo/stacked.html' %}{% endif %}
 {{ ui.page_header('Домены', lead='Серверная фильтрация' if server else 'Фильтрация в браузере') }}
 {% if index_example %}
 {{ ui.banner('warn', 'Пример уведомления с отменой', details=['one.example', 'two.example'], actions=[{'label': 'Отменить', 'action': '/demo/list-selection', 'fields': {'ids': [1, 2]}}]) }}
 {% endif %}
 {% if not server %}<p><a href="/demo/list?example=index">Пример index: теги и пересекающиеся фильтры</a> · <a href="/demo/list?example=input">Фильтр по дате</a> · <a href="/demo/list">Обычный список</a></p>{% endif %}
-{% call list.filter_bar('domains', mode=mode, label='Домены', action='/demo/list-server' if server else None, total=total if server else None, shown=rows|length if server else None, persist='handoff' if index_example else 'session', persist_ttl=300 if index_example else None, reset_keep=['example']) %}
+{% call list.filter_bar('domains', mode=mode, label='Домены', action='/demo/list-server' if server else None, total=total if server else None, shown=rows|length if server else None, persist='handoff' if index_example else 'session', persist_ttl=300 if index_example else None, reset_keep=['example'], count_format='shown') %}
 {{ list.search(value=q|default(''), mode='substring' if index_example else 'words') }}
 {% if index_example %}
 {{ list.chips('show', 'Показать', [('', 'Все'), ('dropped', 'Выпали'), ('errors', 'Ошибки'), ('stale', 'Устарели')], count_scope=['tag']) }}

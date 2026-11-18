@@ -1,0 +1,11 @@
+{% set audit_columns = [{'key': 'name', 'label': 'Домен', 'primary': true}, {'key': 'hidden', 'label': 'Служебное', 'stack': 'hide'}, {'key': 'blank', 'label': 'Пустое'}, {'key': 'extra', 'label': 'Подробности', 'stack': 'secondary'}] %}
+{% call list.data_table('stack-flags', audit_columns, stacked='auto', attrs={'class': 'data-table--stacked-scroll'} if request.args.get('scroll') else {}) %}
+<tbody><tr {{ list.row_attrs('example', sort_values={'name': 'example'}) }}>
+{{ list.cell(audit_columns[0], 'very-long-domain-without-spaces.example') }}
+{{ list.cell(audit_columns[1], 'internal') }}{{ list.cell(audit_columns[2], none) }}{{ list.cell(audit_columns[3], 'Secondary content') }}
+{% call list.secondary_cells(4) %}{{ ui.kv_list([('Подробности', 'Secondary content')]) }}{% endcall %}
+</tr></tbody>{% endcall %}
+{% set wide_columns = [] %}{% for i in range(18) %}{% set _ = wide_columns.append({'key': 'c' ~ i, 'label': 'Колонка ' ~ i}) %}{% endfor %}
+{% call list.data_table('wide-table', wide_columns) %}<tbody>
+{% for row in range(100) %}<tr data-row>{% for i in range(18) %}<td>column-{{ i }}-long-value-{{ row }}</td>{% endfor %}</tr>{% endfor %}
+{{ list.empty_row(18, hidden=false) }}</tbody>{% endcall %}

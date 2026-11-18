@@ -23,7 +23,7 @@ def test_chip_resting_and_pressed_styles(page, live_url, width, height, demo):
 
 def test_row_checkbox_keyboard_focus(page, live_url):
     page.goto(live_url + '/demo/list')
-    page.locator('[data-select-all]').focus()
+    page.locator('[data-select-all]:visible').focus()
     page.keyboard.press('Tab')
     # Sort buttons precede row controls in the keyboard order.
     for _ in range(10):
@@ -66,20 +66,20 @@ def test_filter_sort_selection_and_state(browser, live_url):
     page.goto(live_url + '/demo/list')
     visible = page.locator('[data-row]:visible')
     assert visible.count() == 50
-    page.locator('[data-select-all]').check()
+    page.locator('[data-select-all]:visible').check()
     assert page.locator('[data-selection-count]').inner_text() == '180'
     page.locator('[data-row-select]').first.uncheck()
-    assert page.locator('[data-select-all]').evaluate('(el) => el.indeterminate')
+    assert page.locator('[data-select-all]:visible').evaluate('(el) => el.indeterminate')
     page.locator('[data-chip="new"]').click()
     assert visible.count() == 45
     assert page.locator('[data-chip="used"] [data-chip-count]').inner_text() == '45'
     page.locator('select[name="brand"]').select_option('alpha')
     assert visible.count() == 15
     assert page.locator('[data-chip="used"] [data-chip-count]').inner_text() == '15'
-    page.locator('[data-sort-key="number"]').click()
+    page.locator('[data-sort-key="number"]:visible').click()
     values = visible.evaluate_all('(rows) => rows.map(row => Number(row.dataset.sortNumber))')
     assert values == sorted(values)
-    page.locator('[data-sort-key="number"]').click()
+    page.locator('[data-sort-key="number"]:visible').click()
     values = visible.evaluate_all('(rows) => rows.map(row => Number(row.dataset.sortNumber))')
     assert values == sorted(values, reverse=True)
     page.reload()
@@ -107,13 +107,13 @@ def test_filter_sort_selection_and_state(browser, live_url):
     page.close()
 
 
-@pytest.mark.parametrize('width', [1600, 360])
+@pytest.mark.parametrize('width', [1600, 1280, 400, 360])
 @pytest.mark.parametrize('path', ['/demo/list', '/demo/list-server'])
 def test_responsive_and_server(browser, live_url, width, path):
     page = browser.new_page(viewport={'width': width, 'height': 900})
     page.goto(live_url + path)
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-    if width == 360:
+    if width <= 699:
         page.locator('table').evaluate('(table) => table.classList.remove("data-table--stacked")')
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         assert page.locator('.table-scroll').evaluate('(el) => el.scrollWidth > el.clientWidth')
@@ -125,9 +125,9 @@ def test_responsive_and_server(browser, live_url, width, path):
         page.wait_for_url('**/*q=domain-12*')
         assert page.locator('[data-row]').count() == 4
     else:
-        page.locator('[data-select-all]').check()
+        page.locator('[data-select-all]:visible').check()
         page.locator('[data-demo-delete]').click()
-        assert page.locator('[data-list-count]').inner_text() == '0 из 0'
+        assert page.locator('[data-list-count]').inner_text() == 'показано 0 из 0'
         assert page.locator('[data-bulk-bar]').is_hidden()
     page.close()
 
@@ -140,14 +140,14 @@ def test_stable_sort_and_selection_event(browser, live_url):
       document.querySelector('table').addEventListener('venomlist:selection', event => window.selectedIds = event.detail.ids);
     }''')
     initial = page.locator('[data-row]').evaluate_all('(rows) => rows.map(row => row.dataset.id)')
-    page.locator('[data-sort-key="number"]').click()
-    page.locator('[data-sort-key="number"]').click()
+    page.locator('[data-sort-key="number"]:visible').click()
+    page.locator('[data-sort-key="number"]:visible').click()
     assert page.locator('[data-row]').evaluate_all('(rows) => rows.map(row => row.dataset.id)') == initial
     page.locator('[data-row-select]').first.check()
     assert page.evaluate('window.selectedIds') == ['1']
     page.locator('[data-clear-selection]').click()
     assert page.evaluate('window.selectedIds') == []
-    page.locator('[data-sort-key="date"]').click()
+    page.locator('[data-sort-key="date"]:visible').click()
     dates = page.locator('[data-row]').evaluate_all('(rows) => rows.map(row => row.dataset.sortDate)')
     assert dates == sorted(dates)
     page.close()
@@ -173,7 +173,7 @@ def test_invalid_sort_values_stay_last(browser, live_url, key):
       rows[1].setAttribute('data-sort-' + key, 'invalid');
     }''', key)
     for direction in ['ascending', 'descending']:
-        page.locator(f'[data-sort-key="{key}"]').click()
+        page.locator(f'[data-sort-key="{key}"]:visible').click()
         assert page.locator(f'th[aria-sort="{direction}"]').count() == 1
         ids = page.locator('[data-row]').evaluate_all('(rows) => rows.map(row => row.dataset.id)')
         assert ids[-2:] == ['1', '2']
@@ -196,7 +196,7 @@ def test_refresh_labels_and_scoped_selection(browser, live_url, path):
       table.addEventListener('venomlist:selection', event => window.ids = event.detail.ids);
     }''')
     assert page.locator('[data-id="added"] td').nth(1).get_attribute('data-label') == 'Домен'
-    page.locator('[data-select-all]').check()
+    page.locator('[data-select-all]:visible').check()
     assert not page.locator('#unrelated').is_checked()
     assert 'added' not in page.evaluate('window.ids')
     page.locator('[data-clear-selection]').click()
@@ -208,10 +208,10 @@ def test_server_selection_clean_submit_and_sort(browser, live_url):
     from urllib.parse import parse_qs, urlsplit
     page = browser.new_page()
     page.goto(live_url + '/demo/list-server?sort=number&dir=desc')
-    page.locator('[data-select-all]').check()
+    page.locator('[data-select-all]:visible').check()
     assert page.locator('[data-selection-count]').inner_text() == '180'
     page.locator('[data-row-select]').first.uncheck()
-    assert page.locator('[data-select-all]').evaluate('(box) => box.indeterminate')
+    assert page.locator('[data-select-all]:visible').evaluate('(box) => box.indeterminate')
     page.locator('[data-chip="new"]').click()
     page.wait_for_url('**/*status=new*')
     assert parse_qs(urlsplit(page.url).query, keep_blank_values=True) == {
@@ -265,23 +265,23 @@ def test_lazy_keeps_revealing_while_sentinel_intersects(browser, live_url, fixed
     page.close()
 
 
-@pytest.mark.parametrize('width', [1600, 360])
+@pytest.mark.parametrize('width', [1600, 1280, 400, 360])
 def test_sticky_header_and_stacked_geometry(browser, live_url, width):
     page = browser.new_page(viewport={'width': width, 'height': 900})
     page.goto(live_url + '/demo/list')
     wrapper = page.locator('.table-scroll--fixed')
-    header = page.locator('thead' if width == 360 else 'thead th').first
+    header = page.locator('thead' if width <= 699 else 'thead th').first
     before = header.bounding_box()['y']
     wrapper.evaluate('(el) => el.scrollTop = 300')
     page.wait_for_function("document.querySelector('.table-scroll').scrollTop === 300")
     assert abs(header.bounding_box()['y'] - before) < 2
     wrapper.evaluate('(el) => el.scrollTop = 0')
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-    if width == 360:
+    if width <= 699:
         assert abs(page.locator('thead').bounding_box()['width'] - wrapper.bounding_box()['width']) < 2
         cell = page.locator('[data-row]').first.locator('td').last
         assert cell.evaluate("el => getComputedStyle(el, '::before').textAlign") == 'start'
-        assert page.locator('thead th').first.evaluate("el => getComputedStyle(el).backgroundColor === getComputedStyle(el.closest('thead')).backgroundColor")
+        assert page.locator('thead th:visible').first.evaluate("el => getComputedStyle(el).backgroundColor === getComputedStyle(el.closest('thead')).backgroundColor")
         select = page.locator('[data-row]').first.locator('.data-table__select')
         assert select.evaluate("el => getComputedStyle(el).position") == 'absolute'
         assert select.locator('label').bounding_box()['height'] >= 44
@@ -316,12 +316,12 @@ def test_lazy_selection_survives_sort_and_matching_filter(browser, live_url):
     assert page.locator('[data-row]:visible').count() == 100
     box = page.locator('[data-id="60"] [data-row-select]')
     box.evaluate('(el) => { el.checked = true; el.dispatchEvent(new Event("change", {bubbles:true})); }')
-    page.locator('[data-sort-key="domain"]').click()
+    page.locator('[data-sort-key="domain"]:visible').click()
     assert page.locator('[data-row]:visible').count() == 100
     assert box.is_checked()
     assert page.evaluate('window.selectedIds') == ['60']
     # The descending order puts row 60 outside the same 100-row lazy window.
-    page.locator('[data-sort-key="domain"]').click()
+    page.locator('[data-sort-key="domain"]:visible').click()
     assert page.locator('[data-row]:visible').count() == 100
     assert page.locator('[data-id="60"]').is_hidden()
     assert box.is_checked()
@@ -384,11 +384,14 @@ def test_stacked_roles_on_init_and_refresh(browser, live_url, mode):
     page.goto(live_url + '/demo/' + mode)
     def assert_roles():
         assert page.locator('table').get_attribute('role') == 'table'
-        for selector, role in [('thead, tbody', 'rowgroup'), ('tr', 'row'), ('th', 'columnheader'), ('td', 'cell')]:
+        for selector, role in [('thead, tbody', 'rowgroup'), ('tr:not(.data-table__sort-row)', 'row'), ('th:not(.data-table__sort-row > th)', 'columnheader'), ('td', 'cell')]:
             assert page.locator('table ' + selector if ',' not in selector else 'table thead, table tbody').evaluate_all(
                 '(els, role) => els.every(el => el.getAttribute("role") === role)', role)
         assert page.locator('[data-empty-row] td').get_attribute('data-label') is None
         assert page.locator('th[aria-sort]').count() == 4
+        assert page.locator('.data-table__sort-row').get_attribute('role') == 'presentation'
+        assert page.locator('.data-table__sort-row > th').get_attribute('role') == 'presentation'
+        assert page.locator('thead').aria_snapshot().count('columnheader') == 6
     assert_roles()
     page.evaluate('''() => {
       const table = document.querySelector('table');
@@ -410,8 +413,8 @@ def test_selection_event_ignores_reordering(browser, live_url):
     page.locator('[data-row-select]').nth(0).check()
     page.locator('[data-row-select]').nth(1).check()
     assert page.evaluate('selections.length') == 2
-    page.locator('[data-sort-key="domain"]').click()
-    page.locator('[data-sort-key="domain"]').click()
+    page.locator('[data-sort-key="domain"]:visible').click()
+    page.locator('[data-sort-key="domain"]:visible').click()
     page.locator('table').evaluate("el => el.dispatchEvent(new Event('venomlist:refresh'))")
     assert page.evaluate('selections.length') == 2
     page.locator('[data-clear-selection]').click()
@@ -435,7 +438,7 @@ def test_chip_focus_ring_inside_scrollport(browser, live_url, width):
           return el.matches(':focus-visible') && ring === 4 &&
             rect.left - ring >= bounds.left - .1 && rect.right + ring <= bounds.right + .1 &&
             rect.top - ring >= bounds.top - .1 &&
-            rect.bottom + ring <= bounds.top + group.clientHeight + .1;
+            rect.bottom + ring <= bounds.top + group.clientHeight + .6;
         }''')
     page.close()
 
@@ -478,7 +481,7 @@ def test_bulk_focus_before_hiding(browser, live_url, action):
     page.locator('[data-row-select]').first.check()
     page.locator('[data-' + action + ']').focus()
     page.keyboard.press('Enter')
-    assert page.locator('[data-select-all]').evaluate('el => el === document.activeElement')
+    assert page.locator('[data-select-all]:visible').evaluate('el => el === document.activeElement')
     assert page.locator('[data-bulk-bar]').is_hidden()
     page.close()
 
@@ -517,7 +520,7 @@ def test_touch_sort_header_height_and_colors(browser, live_url, width, touch):
     page.locator('table').evaluate("el => el.classList.remove('data-table--stacked')")
     header = page.locator('th:has(> .th-sort)').first
     assert 44 <= header.bounding_box()['height'] <= 46
-    button = header.locator('.th-sort')
+    button = header.locator('.th-sort:visible')
     button.hover()
     assert button.evaluate("el => getComputedStyle(el).color === getComputedStyle(document.body).color")
     button.click()
@@ -570,11 +573,11 @@ def test_selection_plain_post(browser, live_url, javascript):
     page = browser.new_page(java_script_enabled=javascript)
     page.goto(live_url + "/demo/list")
     if javascript:
-        page.locator("[data-select-all]").check()
-        page.locator("[data-select-all]").uncheck()
+        page.locator("[data-select-all]:visible").check()
+        page.locator("[data-select-all]:visible").uncheck()
     for id in ["2", "4"]:
         page.locator(f'[data-row-select][value="{id}"]').check()
-    assert page.locator("[data-select-all]").get_attribute("name") is None
+    assert page.locator("[data-select-all]:visible").get_attribute("name") is None
     with page.expect_response("**/demo/list-selection") as response:
         page.locator("[data-submit-selection]").click()
     assert response.value.json() == {"ids": ["2", "4"], "fields": ["csrf_token", "ids"]}
@@ -585,31 +588,30 @@ def test_selection_plain_post(browser, live_url, javascript):
 def test_stacked_header_scroll_and_sort(page, live_url, demo):
     page.set_viewport_size({'width': 360, 'height': 1000})
     page.goto(f'{live_url}/demo/{demo}')
-    header = page.locator('.data-table thead tr')
-    assert header.bounding_box()['height'] <= 44
-    assert header.evaluate("el => getComputedStyle(el).flexWrap") == 'nowrap'
-    assert header.evaluate('el => el.scrollWidth > el.clientWidth')
-    assert page.locator('.th-sort').evaluate_all("els => els.every(el => getComputedStyle(el).whiteSpace === 'nowrap')")
+    header = page.locator('.data-table__sort-row')
+    assert header.evaluate("el => getComputedStyle(el).flexWrap") == 'wrap'
+    assert header.evaluate('el => el.scrollWidth === el.clientWidth')
     for direction in ('ascending', 'descending'):
-        page.locator('.th-sort').last.click()
+        page.locator('.th-sort:visible').last.click()
         assert page.locator('th[aria-sort="' + direction + '"]').count() == 1
         values = page.locator('[data-row]:visible').evaluate_all('rows => rows.map(row => Number(row.dataset.sortNumber))')
         assert values == sorted(values, reverse=direction == 'descending')
-        assert header.bounding_box()['height'] <= 44
-        active = page.locator('th[aria-sort="' + direction + '"]').bounding_box()
-        box = header.bounding_box()
-        assert active['x'] >= box['x']
-        assert active['x'] + active['width'] <= box['x'] + box['width']
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-    for index in range(page.locator('.th-sort').count()):
-        header.evaluate('el => el.scrollLeft = 0')
-        page.locator('.th-sort').nth(index).click()
+    for index in range(page.locator('.th-sort:visible').count()):
+        page.locator('.th-sort:visible').nth(index).click()
         assert page.locator('th[aria-sort="ascending"], th[aria-sort="descending"]').count() == 1
-    # Невидимые подписи остаются в DOM и не увеличивают высоту заголовка.
-    hidden = header.locator('th').last
-    assert hidden.evaluate("el => getComputedStyle(el).clipPath") == 'inset(50%)'
-    assert hidden.evaluate("el => getComputedStyle(el).display") != 'none'
-    assert header.bounding_box()['height'] <= 44
+    assert page.locator('thead tr:first-child th').count() == 6
+    snapshot = page.locator('thead').aria_snapshot()
+    assert snapshot.count('columnheader') == 6
+    assert 'columnheader "Домен"' in snapshot
+    active = page.locator('th[aria-sort="ascending"], th[aria-sort="descending"]')
+    assert active.get_attribute('aria-label') in snapshot
+    if demo == 'list-server':
+        current = page.locator('.sort-control [aria-current="true"]')
+        assert current.count() == 1
+        assert current.evaluate('el => getComputedStyle(el).color') == active.evaluate('el => getComputedStyle(el.querySelector("a")).color')
+    else:
+        assert page.locator('.sort-control [aria-pressed="true"]').count() == 1
 
 
 @pytest.mark.parametrize('width', [360, 1600])

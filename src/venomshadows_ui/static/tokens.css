@@ -77,7 +77,7 @@
 
   --color-text-primary: var(--fg);
   --color-text-secondary: var(--muted);
-  --color-text-disabled: var(--muted);
+  --color-text-disabled: rgba(154, 173, 203, .65);
   --color-text-placeholder: var(--placeholder);
   --color-text-on-accent: #04101f;
 
@@ -141,6 +141,8 @@
   --press-transition: scale 0.15s ease-out;
 
   /* ── Раскладка ── */
+  --status-dot-size: .625rem;
+  --settings-toc-top: 0px;
   --tap: 44px;                          /* минимальная зона нажатия */
   --icon-button-compact: 28px;
   --border-width-thin: 1px;
