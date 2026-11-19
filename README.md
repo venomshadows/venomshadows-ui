@@ -12,7 +12,7 @@ SVG-иконки, каркасы Jinja, формы, уведомления и п
 ```toml
 [project]
 dependencies = [
-  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.5",
+  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.6",
 ]
 ```
 
@@ -726,7 +726,7 @@ stack-флаги колонок и добавьте `settings_toc` при шес
 | `empty_state(title, text=None, icon='inbox', sidebar=False, text_mobile=None, sidebar_label='Открыть меню')` | Мобильный текст и кнопка существующего sidebar. |
 | `status_dot(tone, label)` | `ok / warning / danger / neutral`; обязательное доступное имя и title. |
 | `settings_section(..., no_marker=True)` | Только `no_marker=True` убирает маркер; `None`, `False`, `0`, `''` сохраняют «Не настроено». |
-| `external_link(href, label, class_='')` | Иконка новой вкладки, `target=_blank`, `rel=noopener`, доступное предупреждение. Допускаются HTTP(S) и относительные ссылки; остальные схемы заменяются на `#`. |
+| `external_link(href, label, class_='')` | Иконка новой вкладки, `target=_blank`, `rel="noopener noreferrer"`, доступное предупреждение. Допускаются HTTP(S) и относительные ссылки; остальные схемы заменяются на `#`. |
 | `kv_list(items=(), label=None)`, `kv_item(term, value=None)` | Пары ключ/значение; Markup сохраняется, обычный текст экранируется. Вложенный `call` для сложных значений. |
 | `data_table(..., stacked=False, attrs={})` | Колонки `stack='show'/'hide'/'secondary'`, `primary=False`. `attrs` добавляет класс и атрибуты таблицы. |
 | `cell(column, value, empty='—')` | Подпись, `data-stack`, `data-table__primary`, `data-empty` для `None`, `''`, пустого маркера. |

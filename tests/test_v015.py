@@ -45,7 +45,7 @@ def test_new_core_macros(render):
     assert dom.find('a', href='#settings-smtp') and dom.find('a', href='#settings-api')
     assert dom.find('button', **{'data-sidebar-toggle': True})
     assert dom.find('span', role='img', **{'aria-label': 'Работает'})
-    assert dom.find('a', target='_blank', rel='noopener')
+    assert dom.find('a', target='_blank', rel='noopener noreferrer')
     assert '&lt;Label&gt;' in html and '<b>value</b>' in html
     assert 'state-marker' not in html.split('id="settings-plain"')[1].split('</section>')[0]
     assert 'Не настроено' in html

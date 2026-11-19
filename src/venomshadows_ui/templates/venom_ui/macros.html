@@ -281,7 +281,7 @@
 {%- endmacro %}
 
 {% macro external_link(href, label, class_='') -%}
-<a class="link link--external{% if class_ %} {{ class_ }}{% endif %}" href="{{ venom_ui.safe_external_url(href) }}" target="_blank" rel="noopener" aria-label="{{ label }} (откроется в новой вкладке)">{{ label }}{{ icon('external-link') }}</a>
+<a class="link link--external{% if class_ %} {{ class_ }}{% endif %}" href="{{ venom_ui.safe_external_url(href) }}" target="_blank" rel="noopener noreferrer" aria-label="{{ label }} (откроется в новой вкладке)">{{ label }}{{ icon('external-link') }}</a>
 {%- endmacro %}
 
 {% macro kv_item(term, value=None) -%}
