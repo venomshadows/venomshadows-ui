@@ -352,7 +352,7 @@
     syncChips(state.form);
   }
 
-  function updateSelection(state) {
+  function updateSelection(state, initial = false) {
     state.rows = rowsOf(state.table);
     const selectable = selectableRows(state);
     const selected = selectable.filter(row => checkbox(row).checked);
@@ -381,7 +381,7 @@
     const serialized = JSON.stringify([...new Set(ids)].sort());
     if (serialized !== state.lastSelection) {
       state.lastSelection = serialized;
-      state.table.dispatchEvent(new CustomEvent('venomlist:selection', { bubbles: true, detail: { ids } }));
+      state.table.dispatchEvent(new CustomEvent('venomlist:selection', { bubbles: true, detail: { ids, initial } }));
     }
   }
 
@@ -483,7 +483,7 @@
     const state = {
       table, rows: [], bars: linked('[data-bulk-bar]', table.id),
       selectAll: table.querySelector('[data-select-all]') || group?.querySelector('[data-select-all]'),
-      selectAlls: [...new Set(all('[data-select-all]', table).concat(group ? all('[data-select-all]', group) : []))], lastSelection: ''
+      selectAlls: [...new Set(all('[data-select-all]', table).concat(group ? all('[data-select-all]', group) : []))], lastSelection: '[]'
     };
     const changed = event => {
       if (!event.target.matches('[data-select-all], [data-row-select]')) return;
@@ -500,7 +500,7 @@
       updateSelection(state);
     }));
     table.addEventListener('venomlist:refresh', () => updateSelection(state));
-    updateSelection(state);
+    updateSelection(state, true);
     return state;
   }
 

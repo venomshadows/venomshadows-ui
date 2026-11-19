@@ -28,7 +28,7 @@ from .timefmt import dt_full, rel_time
 
 __all__ = ["NavItem", "VenomUI", "__version__"]
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 EXTENSION_KEY = "venom_ui"
 
