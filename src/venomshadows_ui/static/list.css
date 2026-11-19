@@ -588,7 +588,7 @@
   .data-table--stacked-scroll .sort-control { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
   .data-table--stacked tr:not(.data-table__empty) td[data-empty],
   .data-table--stacked tr:not(.data-table__empty) td[data-stack="hide"],
-  .data-table--stacked tr:not(.data-table__empty) td[data-stack="secondary"] { display: none; }
+  .data-table--stacked tr.is-secondary-ready:not(.data-table__empty) td[data-stack="secondary"] { display: none; }
   .data-table--stacked tbody tr[data-row] { display: flex; flex-direction: column; }
   .data-table--stacked .data-table__secondary { grid-column: 1 / -1; width: 100%; text-align: start; }
   .data-table--stacked .data-table__secondary-cell::before { content: none; }
@@ -605,3 +605,6 @@
 .data-table__secondary > summary { list-style: none; display: inline-flex; min-height: var(--tap); align-items: center; gap: .35rem; color: var(--color-accent-text); cursor: pointer; }
 .data-table__secondary > summary::-webkit-details-marker { display: none; }
 .data-table__secondary[open] > summary .icon { transform: rotate(180deg); }
+
+/* The auto summary owns its SVG indicator, including with legacy service CSS. */
+.data-table .data-table__secondary[data-secondary-auto] > summary::after { content: none !important; display: none !important; }

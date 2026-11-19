@@ -7,6 +7,79 @@
   const selectableRows = state => (state.client ? state.client.matching : state.rows.filter(row => !row.hidden))
     .filter(row => { const box = checkbox(row); return box && !box.disabled; });
   const initialized = new WeakSet();
+  const secondaryRows = new WeakMap();
+  const cardMedia = matchMedia('(max-width: 699px)');
+  function syncSecondary(table) {
+    if (!table.matches('.data-table--stacked')) return;
+    rowsOf(table).forEach(row => {
+      let state = secondaryRows.get(row);
+      // Recheck ownership on every sync, including after a service adds its UI.
+      const foreign = all('details.data-table__secondary, .data-table__secondary-cell', row)
+        .some(node => !state || (node !== state.extra && !state.extra.contains(node)));
+      const manual = table.dataset.secondary === 'manual';
+      const current = all(':scope > td[data-stack="secondary"]:not([data-empty])', row);
+      const changed = state && (state.entries.some(({cell}) => !current.includes(cell)) ||
+        current.some(cell => !state.entries.some(entry => entry.cell === cell) &&
+          (cell.textContent.trim() || cell.children.length)));
+      if (state && (!cardMedia.matches || foreign || manual || changed)) {
+        state.entries.forEach(({cell, value}) => cell.append(...value.childNodes));
+        state.extra.remove();
+        secondaryRows.delete(row);
+        state = null;
+      }
+      row.classList.toggle('is-secondary-ready', cardMedia.matches && (foreign || !!state));
+      if (manual || foreign || !cardMedia.matches || state) return;
+      const cells = all(':scope > td[data-stack="secondary"]:not([data-empty])', row)
+        .filter(cell => cell.textContent.trim() || cell.querySelector('input, select, textarea, button, a, img, svg, video, audio, canvas, iframe'));
+      if (!cells.length) return;
+      const extra = document.createElement('td');
+      extra.className = 'data-table__secondary-cell';
+      extra.setAttribute('role', 'cell');
+      extra.colSpan = row.cells.length;
+      const details = document.createElement('details');
+      details.className = 'data-table__secondary';
+      details.dataset.secondaryAuto = '';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Ещё';
+      const name = row.querySelector('.data-table__primary')?.textContent.trim();
+      if (name) {
+        const context = document.createElement('span');
+        context.className = 'visually-hidden';
+        context.textContent = ': ' + name;
+        summary.append(context);
+      }
+      const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      chevron.setAttribute('class', 'icon');
+      chevron.setAttribute('viewBox', '0 0 24 24');
+      chevron.setAttribute('aria-hidden', 'true');
+      chevron.setAttribute('fill', 'none');
+      chevron.setAttribute('stroke', 'currentColor');
+      chevron.setAttribute('stroke-width', '2');
+      const path = document.createElementNS(chevron.namespaceURI, 'path');
+      path.setAttribute('d', 'm6 9 6 6 6-6');
+      chevron.append(path);
+      summary.append(chevron);
+      details.append(summary);
+      const entries = cells.map(cell => {
+        const item = document.createElement('div');
+        item.className = 'data-table__secondary-item ' + cell.className;
+        if (cell.hasAttribute('title')) item.title = cell.title;
+        const label = document.createElement('span');
+        label.className = 'field__label';
+        label.textContent = cell.dataset.label || '';
+        const value = document.createElement('div');
+        value.append(...cell.childNodes);
+        item.append(label, value);
+        details.append(item);
+        return {cell, value};
+      });
+      extra.append(details);
+      row.append(extra);
+      secondaryRows.set(row, {extra, entries});
+      row.classList.add('is-secondary-ready');
+    });
+  }
+  cardMedia.addEventListener('change', () => all('.data-table--stacked[data-list]').forEach(syncSecondary));
   const filteredBoxes = new WeakMap();
   const handoffBindings = new Map();
 
@@ -398,7 +471,7 @@
       Object.entries({ 'thead, tbody': 'rowgroup', tr: 'row', th: 'columnheader', td: 'cell' })
         .forEach(([selector, role]) => all(selector, table).forEach(node => { if (node.getAttribute('role') !== 'presentation') node.setAttribute('role', role); }));
     }
-    const labels = all('thead tr:first-child th', table).map(th => th.textContent.trim());
+    const labels = all('thead tr:first-child th', table).map(th => th.getAttribute('aria-label') || th.textContent.trim());
     all('tbody > [data-row]:not(.data-table__empty)', table).forEach(row => Array.from(row.cells).forEach((cell, index) => {
       if (!cell.hasAttribute('data-label')) cell.dataset.label = labels[index] || '';
     }));
@@ -527,10 +600,15 @@
     const tables = all('[data-list]', root);
     if (root.matches?.('[data-list]')) tables.unshift(root);
     tables.forEach(table => {
+      fillLabels(table);
+      syncSecondary(table);
       if (initialized.has(table)) return;
       initialized.add(table);
-      fillLabels(table);
+      new MutationObserver(() => syncSecondary(table)).observe(table, {
+        childList: true, subtree: true, attributes: true, attributeFilter: ['data-secondary']
+      });
       initDetails(table);
+      table.addEventListener('venomlist:refresh', () => { fillLabels(table); syncSecondary(table); });
       const selection = initSelection(table);
       if (table.dataset.mode === 'server') {
         table.addEventListener('venomlist:refresh', () => fillLabels(table));
@@ -617,6 +695,6 @@
     }
   });
   window.VenomList = { init, removeRows };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => init());
+  if (document.readyState !== 'complete') document.addEventListener('DOMContentLoaded', () => init());
   else init();
 }());

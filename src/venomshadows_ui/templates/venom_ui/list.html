@@ -103,7 +103,7 @@
 {%- set digits = width[:-1] if width is string and width.endswith('%') else width %}
 {%- set valid_width = (width is number and width is not boolean) or
     (digits is string and digits.isascii() and digits.isdecimal()) %}
-{% if header %}<th scope="col" aria-label="{{ column.label|striptags }}" class="data-table__{{ column.align|default('start') }}{% if column.class is string and column.class %} {{ column.class }}{% endif %}"
+{% if header %}<th scope="col" aria-label="{{ column.label|striptags }}"{% if column.short %} title="{{ column.label|striptags }}"{% endif %} class="data-table__{{ column.align|default('start') }}{% if column.class is string and column.class %} {{ column.class }}{% endif %}"
     {%- if column.stack is defined %} data-stack="{{ column.stack }}"{% endif %}
     {%- if valid_width %} width="{{ width }}"{% endif %}
     {%- if column.sortable|default(true) %}
@@ -115,12 +115,12 @@
       {{- _query_args(query) }}
       {%- set _ = query.append(('sort', column.key)) %}
       {%- set _ = query.append(('dir', 'desc' if active and dir == 'asc' else 'asc')) %}
-      <a class="th-sort"{% if not header and active %} aria-current="true"{% endif %} href="{{ request.path }}?{{ query|urlencode }}">
+      <a class="th-sort"{% if column.short %} title="{{ column.label|striptags }}"  {% if header %}aria-label="{{ column.label|striptags }}"{% endif %}{% endif %}{% if not header and active %} aria-current="true"{% endif %} href="{{ request.path }}?{{ query|urlencode }}">
     {%- else %}
-      <button type="button" class="th-sort" data-sort-key="{{ column.key }}"
+      <button type="button" class="th-sort"{% if column.short %} title="{{ column.label|striptags }}"  {% if header %}aria-label="{{ column.label|striptags }}"{% endif %}{% endif %} data-sort-key="{{ column.key }}"
               data-sort-type="{{ column.type|default('text') }}"{% if not header %} aria-pressed="{{ 'true' if active else 'false' }}"{% endif %}>
     {%- endif %}
-      {{- column.label }}
+      {% if column.short and not header %}<span aria-hidden="true">{{ column.short }}</span><span class="visually-hidden">{{ column.label|striptags }}</span>{% else %}{{- column.short or column.label }}{% endif %}
       {% if not header %}<span class="visually-hidden" data-sort-direction>{{ ', по возрастанию' if direction == 'asc' else (', по убыванию' if direction == 'desc' else '') }}</span>{% endif %}
       <span data-sort-icon="none"{% if direction != 'none' %} hidden{% endif %}>
         {{- venom_icon('chevrons-up-down') -}}
@@ -132,7 +132,7 @@
         {{- venom_icon('chevron-down') -}}
       </span>
     {%- if mode == 'server' %}</a>{% else %}</button>{% endif %}
-  {%- else %}{{ column.label }}{% endif %}
+  {%- else %}{{ column.short or column.label }}{% endif %}
 {% if header %}</th>{% endif %}
 {%- endmacro %}
 
