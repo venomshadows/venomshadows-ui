@@ -12,7 +12,7 @@ SVG-иконки, каркасы Jinja, формы, уведомления и п
 ```toml
 [project]
 dependencies = [
-  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.9",
+  "venomshadows-ui @ git+https://github.com/venomshadows/venomshadows-ui@v0.1.10",
 ]
 ```
 

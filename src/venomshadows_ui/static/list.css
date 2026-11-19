@@ -604,6 +604,28 @@
 .card-list--grid > [data-empty-row], .card-list--grid > .lazy-sentinel { grid-column: 1 / -1; }
 .data-table__secondary > summary { list-style: none; display: inline-flex; min-height: var(--tap); align-items: center; gap: .35rem; color: var(--color-accent-text); cursor: pointer; white-space: nowrap; }
 .data-table__secondary > summary > .icon { width: 1.25em; height: 1.25em; }
+/* Содержимое автоматического «Ещё» (list.js) — как строки карточки: подпись слева, значение справа. */
+.data-table__secondary-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  min-height: var(--tap);
+  padding-block: .35rem;
+  border-top: 1px solid var(--border);
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+.data-table__secondary-item > .field__label {
+  flex: 0 0 35%;
+  margin: 0;
+  text-align: start;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--color-text-secondary);
+}
 .data-table__secondary > summary::-webkit-details-marker { display: none; }
 .data-table__secondary[open] > summary .icon { transform: rotate(180deg); }
 
