@@ -602,7 +602,8 @@
 }
 
 .card-list--grid > [data-empty-row], .card-list--grid > .lazy-sentinel { grid-column: 1 / -1; }
-.data-table__secondary > summary { list-style: none; display: inline-flex; min-height: var(--tap); align-items: center; gap: .35rem; color: var(--color-accent-text); cursor: pointer; }
+.data-table__secondary > summary { list-style: none; display: inline-flex; min-height: var(--tap); align-items: center; gap: .35rem; color: var(--color-accent-text); cursor: pointer; white-space: nowrap; }
+.data-table__secondary > summary > .icon { width: 1.25em; height: 1.25em; }
 .data-table__secondary > summary::-webkit-details-marker { display: none; }
 .data-table__secondary[open] > summary .icon { transform: rotate(180deg); }
 

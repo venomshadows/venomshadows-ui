@@ -51,10 +51,10 @@
       const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       chevron.setAttribute('class', 'icon');
       chevron.setAttribute('viewBox', '0 0 24 24');
-      chevron.setAttribute('aria-hidden', 'true');
-      chevron.setAttribute('fill', 'none');
-      chevron.setAttribute('stroke', 'currentColor');
-      chevron.setAttribute('stroke-width', '2');
+      // Same attributes as the server-side icon() macro (icons.py), including size.
+      [['width', '1.25em'], ['height', '1.25em'], ['fill', 'none'], ['stroke', 'currentColor'],
+       ['stroke-width', '1.75'], ['stroke-linecap', 'round'], ['stroke-linejoin', 'round'],
+       ['aria-hidden', 'true'], ['focusable', 'false']].forEach(([name, value]) => chevron.setAttribute(name, value));
       const path = document.createElementNS(chevron.namespaceURI, 'path');
       path.setAttribute('d', 'm6 9 6 6 6-6');
       chevron.append(path);
